@@ -4,7 +4,7 @@ import { calculateLevels, getLevelLabel, getPlayerRating } from '../utils/rating
 import { nameToPinyinKey } from '../utils/pinyin';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  Line, PieChart, Pie, Cell, Legend, Area, AreaChart
+  PieChart, Pie, Cell, Legend, Area, AreaChart
 } from 'recharts';
 
 // ===== 球员统计图表子组件 =====
@@ -13,7 +13,7 @@ interface PlayerChartsProps {
   playerName: string;
 }
 
-const PlayerCharts: React.FC<PlayerChartsProps> = ({ playerId, playerName }) => {
+const PlayerCharts: React.FC<PlayerChartsProps> = ({ playerId }) => {
   const matches = useStore((state) => state.matches);
 
   const stats = useMemo(() => {
@@ -122,7 +122,7 @@ const PlayerCharts: React.FC<PlayerChartsProps> = ({ playerId, playerName }) => 
               innerRadius={40}
               outerRadius={65}
               dataKey="value"
-              label={({ name, percent = 0 }) => `${name} ${(percent * 100).toFixed(0)}%`}
+              label={({ name, percent }: any) => `${name ?? ""} ${((percent ?? 0) * 100).toFixed(0)}%`}
             >
               <Cell fill="#52c41a" />
               <Cell fill="#ff4d4f" />

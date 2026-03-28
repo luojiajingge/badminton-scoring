@@ -14,7 +14,7 @@ import './styles/global.css';
 
 // 格式化日期显示
 const formatDateDisplay = (dateStr: string) => {
-  const [year, month, day] = dateStr.split('-');
+  const [, month, day] = dateStr.split('-');
   return `${month}月${day}日`;
 };
 
