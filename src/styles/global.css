@@ -1,0 +1,624 @@
+:root {
+  --primary-color: #1890ff;
+  --primary-light: rgba(24, 144, 255, 0.1);
+  --success-color: #52c41a;
+  --warning-color: #faad14;
+  --danger-color: #ff4d4f;
+  --error-color: #ff4d4f;
+  --bg-color: #f5f5f5;
+  --card-bg: #ffffff;
+  --text-color: #333333;
+  --text-secondary: #666666;
+  --border-color: #e8e8e8;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="dark"] {
+  --bg-color: #1a1a1a;
+  --card-bg: #2d2d2d;
+  --text-color: #ffffff;
+  --text-secondary: #aaaaaa;
+  --border-color: #444444;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --primary-light: rgba(24, 144, 255, 0.2);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  min-height: 100vh;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.app {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 16px;
+  min-height: 100vh;
+}
+
+/* 头部样式 */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 0;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.header h1 {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--primary-color);
+}
+
+.header-subtitle {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+/* 导航样式 */
+.nav {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.nav-btn {
+  flex-shrink: 0;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 20px;
+  background-color: var(--card-bg);
+  color: var(--text-color);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: var(--shadow);
+}
+
+.nav-btn:hover {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.nav-btn.active {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+/* 卡片样式 */
+.card {
+  background-color: var(--card-bg);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow);
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--text-color);
+}
+
+/* 按钮样式 */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-height: 48px;
+}
+
+.btn-primary {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: #40a9ff;
+}
+
+.btn-success {
+  background-color: var(--success-color);
+  color: white;
+}
+
+.btn-danger {
+  background-color: var(--error-color);
+  color: white;
+}
+
+.btn-secondary {
+  background-color: var(--border-color);
+  color: var(--text-color);
+}
+
+.btn-full {
+  width: 100%;
+}
+
+.btn-lg {
+  padding: 16px 32px;
+  font-size: 18px;
+  min-height: 56px;
+}
+
+.btn-sm {
+  padding: 8px 16px;
+  font-size: 14px;
+  min-height: 36px;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 大按钮（适合手机端） */
+.big-btn {
+  width: 100%;
+  padding: 24px;
+  font-size: 24px;
+  font-weight: 700;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-height: 80px;
+}
+
+.big-btn-team1 {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.big-btn-team2 {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+}
+
+.big-btn:active {
+  transform: scale(0.98);
+}
+
+/* 输入框样式 */
+.input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 16px;
+  background-color: var(--card-bg);
+  color: var(--text-color);
+  min-height: 48px;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+}
+
+/* 列表样式 */
+.list {
+  list-style: none;
+}
+
+.list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.list-item:last-child {
+  border-bottom: none;
+}
+
+/* 分数显示 */
+.score-display {
+  text-align: center;
+  padding: 16px;
+}
+
+.score-number {
+  font-size: 72px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.score-team-name {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.score-games {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 8px;
+}
+
+/* 局分显示 */
+.game-scores {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin: 16px 0;
+  flex-wrap: wrap;
+}
+
+.game-score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 16px;
+  background-color: var(--bg-color);
+  border-radius: 8px;
+  min-width: 60px;
+}
+
+.game-score.active {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.game-score.winner {
+  border: 2px solid var(--success-color);
+}
+
+.game-score-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.game-score.active .game-score-label {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.game-score-value {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* 排行榜样式 */
+.leaderboard-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 4px;
+  background-color: var(--card-bg);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  box-shadow: var(--shadow);
+}
+
+.leaderboard-rank {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-weight: 600;
+  margin-right: 12px;
+}
+
+.leaderboard-rank.gold {
+  background: linear-gradient(135deg, #f5af19 0%, #f12711 100%);
+  color: white;
+}
+
+.leaderboard-rank.silver {
+  background: linear-gradient(135deg, #bdc3c7 0%, #2c3e50 100%);
+  color: white;
+}
+
+.leaderboard-rank.bronze {
+  background: linear-gradient(135deg, #b8860b 0%, #8b4513 100%);
+  color: white;
+}
+
+.leaderboard-info {
+  flex: 1;
+}
+
+.leaderboard-name {
+  font-weight: 500;
+}
+
+.leaderboard-stats {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.leaderboard-points {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--primary-color);
+}
+
+/* 历史记录样式 */
+.history-item {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 4px;
+  background-color: var(--card-bg);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  box-shadow: var(--shadow);
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.history-date {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.history-type {
+  font-size: 12px;
+  padding: 2px 8px;
+  background-color: var(--bg-color);
+  border-radius: 4px;
+}
+
+.history-teams {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.history-team {
+  flex: 1;
+  text-align: center;
+}
+
+.history-team-name {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.history-score {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.history-vs {
+  padding: 0 8px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* 玩家选择 */
+.player-select {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.player-option {
+  padding: 6px 4px;
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background-color: var(--card-bg);
+}
+
+.player-option:hover {
+  border-color: var(--primary-color);
+}
+
+.player-option.selected {
+  border-color: var(--primary-color);
+  background-color: rgba(24, 144, 255, 0.1);
+}
+
+/* 主题切换按钮 */
+.theme-toggle {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background-color: var(--card-bg);
+  color: var(--text-color);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  box-shadow: var(--shadow);
+}
+
+/* 空状态 */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-secondary);
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+/* 模态框 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.modal {
+  background-color: var(--card-bg);
+  border-radius: 12px;
+  padding: 20px;
+  width: 100%;
+  max-width: 400px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.modal-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.modal-body {
+  color: var(--text-color);
+  line-height: 1.5;
+}
+
+.modal-content {
+  background-color: var(--card-bg);
+  border-radius: 12px;
+  padding: 20px;
+  width: 100%;
+  max-width: 400px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.modal-actions .btn {
+  flex: 1;
+}
+
+/* 统计卡片 */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.stat-card {
+  background-color: var(--bg-color);
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--primary-color);
+}
+
+.stat-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+/* 对阵记录 */
+.h2h-display {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 16px;
+  background-color: var(--bg-color);
+  border-radius: 8px;
+  margin: 12px 0;
+}
+
+.h2h-player {
+  text-align: center;
+}
+
+.h2h-score {
+  font-size: 32px;
+  font-weight: 700;
+}
+
+.h2h-vs {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* 响应式调整 */
+@media (max-width: 360px) {
+  .score-number {
+    font-size: 56px;
+  }
+
+  .big-btn {
+    padding: 20px;
+    font-size: 20px;
+    min-height: 70px;
+  }
+}
+
+/* 淡入动画 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* 胜利动画 */
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.winner-animation {
+  animation: pulse 0.5s ease-in-out 3;
+}
