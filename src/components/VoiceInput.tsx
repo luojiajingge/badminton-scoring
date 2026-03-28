@@ -36,7 +36,7 @@ function parseInputText(text: string): {
   if (team1Names.length === 0 || team2Names.length === 0) return null;
   return { team1Names, team2Names, scores: [[s1, s2]] };
 }
-function findPlayerCandidates(inputName: string, players: { id: string; name: string }[]) {
+function findPlayerCandidates(inputName: string, players: Player[]) {
   const q = inputName.toLowerCase().replace(/\s+/g, '');
   const exact = players.find(p => p.name === inputName);
   if (exact) return { exact, candidates: [] };
@@ -48,7 +48,7 @@ interface PendingPlayer {
   teamIndex: 1 | 2;
   nameIndex: number;
   inputName: string;
-  candidates?: { id: string; name: string }[];
+  candidates?: Player[];
 }
 
 export const VoiceInput: React.FC<VoiceInputProps> = ({ onMatchCreated }) => {
@@ -238,7 +238,7 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({ onMatchCreated }) => {
     const newUnmatched = [...pendingConfirm.unmatched];
     newUnmatched.splice(idx, 1);
 
-    const newPlayer = await addPlayer(item.name);
+    const newPlayer = await addPlayer(item.inputName);
     if (item.teamIndex === 1) pendingConfirm.team1.push(newPlayer);
     else pendingConfirm.team2.push(newPlayer);
 

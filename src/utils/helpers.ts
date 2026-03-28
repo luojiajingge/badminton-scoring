@@ -56,7 +56,7 @@ export const formatDuration = (start: number, end: number): string => {
 
 export const calculatePlayerStats = (playerId: string, matches: Match[]): PlayerStats => {
   const stats: PlayerStats = {
-    playerId, totalMatches: 0, wins: 0, losses: 0, winRate: 0, points: 0, recentMatches: [],
+    playerId, totalMatches: 0, wins: 0, losses: 0, winRate: 0, points: 0, recentMatches: [], rating: 2000, level: -1,
   };
   matches.forEach((match) => {
     if (match.status !== 'completed') return;
@@ -95,7 +95,7 @@ export const calculateHeadToHead = (player1Id: string, player2Id: string, matche
 export const generateLeaderboard = (players: Player[], matches: Match[]): LeaderboardEntry[] => {
   const entries = players.map((player) => {
     const stats = calculatePlayerStats(player.id, matches);
-    return { player, points: stats.points, wins: stats.wins, losses: stats.losses, winRate: stats.winRate };
+    return { player, points: stats.points, wins: stats.wins, losses: stats.losses, winRate: stats.winRate, rating: stats.rating ?? 2000, level: stats.level ?? -1 };
   });
   entries.sort((a, b) => { if (b.points !== a.points) return b.points - a.points; return b.winRate - a.winRate; });
   return entries.map((entry, index) => ({ ...entry, rank: index + 1 }));

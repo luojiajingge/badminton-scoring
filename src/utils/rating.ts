@@ -41,7 +41,7 @@ export function calculateLevels(players: Player[], activeIds?: Set<string>): Map
   }
   
   // 按积分从高到低排序
-  const sorted = [...rated].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0) || a.name.localeCompare(b.name, 'zh'));
+  const sorted = [...rated].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0) || (a.name ?? '').localeCompare(b.name ?? '', 'zh'));
   const total = sorted.length;
   
   sorted.forEach((player, index) => {
@@ -62,8 +62,8 @@ export function getLevelLabel(level: number): string {
 }
 
 // 获取队伍平均级别（用于双打）
-function getTeamAvgLevel(players: Player[], levels: Map<string, number>): number {
-  const playerLevels = players.map(p => {
+function getTeamAvgLevel(team: { players: Player[] }, levels: Map<string, number>): number {
+  const playerLevels = team.players.map(p => {
     const l = levels.get(p.id);
     return l !== undefined && l >= 0 ? l : null; // null = 无级别
   });
@@ -71,7 +71,8 @@ function getTeamAvgLevel(players: Player[], levels: Map<string, number>): number
   // 如果有人没有级别，返回 null
   if (playerLevels.some(l => l === null)) return -1; // -1 表示有人无级别
   
-  const avg = playerLevels.reduce((sum, l) => sum + (l ?? 0), 0) / playerLevels.length;
+  const validLevels: number[] = playerLevels.filter((l): l is number => l !== null);
+  const avg = validLevels.reduce((sum, l) => sum + l, 0) / validLevels.length;
   return Math.round(avg);
 }
 
@@ -112,8 +113,8 @@ export function calculateRatingChanges(
     }
   } else {
     // 双打：比较队伍平均级别
-    const avg1 = getTeamAvgLevel(match.team1.players, levels);
-    const avg2 = getTeamAvgLevel(match.team2.players, levels);
+    const avg1 = getTeamAvgLevel(match.team1, levels);
+    const avg2 = getTeamAvgLevel(match.team2, levels);
     
     if (avg1 < 0 || avg2 < 0) {
       kValue = 50; // 有人无级别，按同级

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { Player, Match, MatchType, MatchMode, ScoreMode, Theme, UndoSnapshot, DaySnapshot, PlayerSnapshot, SettlementResult } from '../types';
+import type { Player, Match, Team, MatchType, MatchMode, ScoreMode, Theme, UndoSnapshot, DaySnapshot, PlayerSnapshot, SettlementResult } from '../types';
 import { generateId, isGameWon, isMatchWon } from '../utils/helpers';
 import { calculateRatingChanges, applyRatingChanges, calculateLevels, getInitialRating } from '../utils/rating';
 import { db } from '../services/supabase';
@@ -38,7 +38,7 @@ interface AppState {
   setGameScore: (gameIndex: number, team1Score: number, team2Score: number) => Promise<void>;
   undoScore: () => void;
   finishMatch: () => Promise<void>;
-  deleteMatch: (id: string) => Promise<void>;
+  handleMatchCompletion: (match: Match, team1: Team, team2: Team) => Promise<Match>;  deleteMatch: (id: string) => Promise<void>;
   deleteMatches: (ids: string[]) => Promise<void>;
   resetAllRatings: () => Promise<void>;
   loadMatch: (id: string) => void;
@@ -169,7 +169,7 @@ export const useStore = create<AppState>()(
       handleMatchCompletion: async (updatedMatch: Match, team1: Team, team2: Team) => {
         if (updatedMatch.status !== 'completed') return updatedMatch;
         const allPlayers = [...team1.players, ...team2.players];
-        const activeIds = new Set();
+        const activeIds = new Set<string>();
         // 只标记历史已参赛球员（不含本次），rating != 初始值 说明之前打过
         get().players.forEach(p => { if (p.rating !== undefined && p.rating !== getInitialRating()) activeIds.add(p.id); });
         const levels = calculateLevels([...get().players, ...allPlayers], activeIds);

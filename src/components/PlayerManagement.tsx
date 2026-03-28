@@ -4,7 +4,7 @@ import { calculateLevels, getLevelLabel, getPlayerRating } from '../utils/rating
 import { nameToPinyinKey } from '../utils/pinyin';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  LineChart, Line, PieChart, Pie, Cell, Legend, Area, AreaChart
+  Line, PieChart, Pie, Cell, Legend, Area, AreaChart
 } from 'recharts';
 
 // ===== 球员统计图表子组件 =====
@@ -122,7 +122,7 @@ const PlayerCharts: React.FC<PlayerChartsProps> = ({ playerId, playerName }) => 
               innerRadius={40}
               outerRadius={65}
               dataKey="value"
-              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+              label={({ name, percent = 0 }) => `${name} ${(percent * 100).toFixed(0)}%`}
             >
               <Cell fill="#52c41a" />
               <Cell fill="#ff4d4f" />
@@ -140,7 +140,7 @@ const PlayerCharts: React.FC<PlayerChartsProps> = ({ playerId, playerName }) => 
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
             <XAxis dataKey="date" tick={{ fontSize: 11 }} />
             <YAxis domain={[0, 1]} ticks={[0, 1]} tickFormatter={v => v === 1 ? '胜' : '负'} tick={{ fontSize: 11 }} />
-            <Tooltip formatter={(v: number) => v === 1 ? '胜' : '负'} />
+            <Tooltip formatter={(v: any) => v === 1 ? '胜' : '负'} />
             <Area type="monotone" dataKey="result" stroke="#1890ff" fill="#1890ff" fillOpacity={0.15} />
           </AreaChart>
         </ResponsiveContainer>
@@ -174,7 +174,7 @@ const PlayerCharts: React.FC<PlayerChartsProps> = ({ playerId, playerName }) => 
               <XAxis type="number" tick={{ fontSize: 11 }} />
               <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={70} />
               <Tooltip
-                formatter={(v: number, name: string) => [v, name]}
+                formatter={(v: any, name: any) => [v, name]}
                 labelFormatter={(_, payload) => payload?.[0]?.payload?.fullName ?? ''}
               />
               <Legend wrapperStyle={{ fontSize: 12 }} />
