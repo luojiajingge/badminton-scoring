@@ -29,6 +29,7 @@ function App() {
   const loading = useStore((state) => state.loading);
   const getUnsettledDates = useStore((state) => state.getUnsettledDates);
   const matches = useStore((state) => state.matches);
+  const daySnapshots = useStore((state) => state.daySnapshots);
 
   useEffect(() => { loadFromCloud(); }, [loadFromCloud]);
   useEffect(() => { document.documentElement.setAttribute('data-theme', theme); }, [theme]);
@@ -46,13 +47,24 @@ function App() {
 
   // 检查未清算日期
   useEffect(() => {
-    if (!loading && matches.length > 0) {
-      const unsettled = getUnsettledDates();
-      if (unsettled.length > 0 && !unsettledNotice.dismissed) {
-        setUnsettledNotice({ dates: unsettled, dismissed: false });
+    if (loading) return;
+
+    const unsettled = getUnsettledDates();
+    setUnsettledNotice((prev) => {
+      if (unsettled.length === 0) {
+        if (prev.dates.length === 0 && !prev.dismissed) return prev;
+        return { dates: [], dismissed: false };
       }
-    }
-  }, [loading, matches, getUnsettledDates, unsettledNotice.dismissed]);
+
+      const sameDates =
+        prev.dates.length === unsettled.length &&
+        prev.dates.every((date, index) => date === unsettled[index]);
+
+      if (sameDates) return prev;
+
+      return { dates: unsettled, dismissed: false };
+    });
+  }, [loading, matches, daySnapshots, getUnsettledDates]);
 
   const handleStartMatch = () => setCurrentPage('match');
   const handleBackToMatch = () => { useStore.getState().finishMatch(); setCurrentPage('match'); };

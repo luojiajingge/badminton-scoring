@@ -350,6 +350,60 @@ body {
   font-weight: 500;
 }
 
+.leaderboard-filter-bar {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.leaderboard-filter-chip {
+  border: 1px solid var(--border-color);
+  background-color: var(--card-bg);
+  color: var(--text-secondary);
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.leaderboard-filter-chip.active {
+  background-color: var(--primary-color);
+  color: #fff;
+  border-color: var(--primary-color);
+}
+
+.leaderboard-filter-empty {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 12px 0;
+}
+
+.leaderboard-level-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 3px 0;
+  flex-wrap: wrap;
+}
+
+.leaderboard-level-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.leaderboard-level-chip-text {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
 .leaderboard-stats {
   font-size: 12px;
   color: var(--text-secondary);
@@ -405,11 +459,61 @@ body {
 .history-team-name {
   font-size: 12px;
   font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .history-score {
   font-size: 24px;
   font-weight: 700;
+}
+
+.history-result-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.history-result-badge.win {
+  background-color: rgba(82, 196, 26, 0.15);
+  color: var(--success-color);
+}
+
+.history-result-badge.lose {
+  background-color: rgba(255, 77, 79, 0.12);
+  color: var(--danger-color);
+}
+
+.history-result-badge.neutral {
+  background-color: var(--bg-color);
+  color: var(--text-secondary);
+}
+
+.history-game-score {
+  margin-top: 8px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.history-game-score-team1 {
+  color: var(--primary-color);
+  font-weight: 700;
+}
+
+.history-game-score-team2 {
+  color: #ff7a45;
+  font-weight: 700;
+}
+
+.history-game-score-colon,
+.history-game-score-sep {
+  color: var(--text-secondary);
 }
 
 .history-vs {

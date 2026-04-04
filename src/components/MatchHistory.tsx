@@ -54,6 +54,28 @@ export const MatchHistory: React.FC = () => {
     return players.map((p) => p.name).join(' & ');
   };
 
+  const getPlayedGames = (match: Match) => {
+    const playedGames = match.games.filter((g) => g.winner || g.team1Score > 0 || g.team2Score > 0);
+    if (playedGames.length > 0) return playedGames;
+    return [{ team1Score: match.team1.gamesWon, team2Score: match.team2.gamesWon }];
+  };
+
+  const getPlayedGameScores = (match: Match) => {
+    return getPlayedGames(match).map((g) => `${g.team1Score}:${g.team2Score}`).join(' / ');
+  };
+
+  const getResultBadge = (match: Match, team: 'team1' | 'team2') => {
+    if (!match.winner) {
+      return <span className="history-result-badge neutral">未结算</span>;
+    }
+    const won = match.winner === team;
+    return (
+      <span className={`history-result-badge ${won ? 'win' : 'lose'}`}>
+        {won ? '✅ 胜' : '❌ 负'}
+      </span>
+    );
+  };
+
   const handleDelete = async (id: string) => {
     if (actionLoading) return;
     if (confirm('确定要删除这场比赛记录吗？')) {
@@ -185,8 +207,11 @@ export const MatchHistory: React.FC = () => {
             <div style={{ fontSize: '18px', fontWeight: '600' }}>
               {getTeamName(selectedMatch.team1.players)} vs {getTeamName(selectedMatch.team2.players)}
             </div>
-            <div style={{ fontSize: '32px', fontWeight: '700', margin: '8px 0' }}>
-              {selectedMatch.team1.gamesWon} : {selectedMatch.team2.gamesWon}
+            <div style={{ fontSize: '26px', fontWeight: '700', margin: '8px 0', lineHeight: 1.25 }}>
+              {getPlayedGameScores(selectedMatch)}
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+              局分：{selectedMatch.team1.gamesWon} : {selectedMatch.team2.gamesWon}
             </div>
             <div style={{ color: 'var(--success-color)' }}>
               🏆 获胜: {getTeamName(selectedMatch.winner === 'team1' ? selectedMatch.team1.players : selectedMatch.team2.players)}
@@ -335,14 +360,29 @@ export const MatchHistory: React.FC = () => {
                 </div>
                 <div className="history-teams">
                   <div className="history-team">
-                    <div className="history-team-name">{getTeamName(match.team1.players)}</div>
-                    <div className="history-score">{match.team1.gamesWon}</div>
+                    <div className="history-team-name">
+                      {getTeamName(match.team1.players)}
+                      {getResultBadge(match, 'team1')}
+                    </div>
                   </div>
                   <div className="history-vs">VS</div>
                   <div className="history-team">
-                    <div className="history-team-name">{getTeamName(match.team2.players)}</div>
-                    <div className="history-score">{match.team2.gamesWon}</div>
+                    <div className="history-team-name">
+                      {getTeamName(match.team2.players)}
+                      {getResultBadge(match, 'team2')}
+                    </div>
                   </div>
+                </div>
+                <div className="history-game-score">
+                  <span>比分：</span>
+                  {getPlayedGames(match).map((game, index) => (
+                    <React.Fragment key={`${match.id}-game-${index}`}>
+                      {index > 0 && <span className="history-game-score-sep"> / </span>}
+                      <span className="history-game-score-team1">{game.team1Score}</span>
+                      <span className="history-game-score-colon">:</span>
+                      <span className="history-game-score-team2">{game.team2Score}</span>
+                    </React.Fragment>
+                  ))}
                 </div>
               </div>
             ))
