@@ -132,13 +132,13 @@ export interface DaySnapshot {
 
 export interface SettlementResult {
   date: string;
-  consistent: boolean; // 实时数据与清算结果是否一致
   playerResults: {
     playerId: string;
     name: string;
-    realtimeRating: number; // 当前实时积分
-    settledRating: number; // 清算后积分
-    diff: number; // 差异
+    ratingBefore: number; // 清算前积分
+    ratingAfter: number;  // 清算后积分
+    diff: number;         // 变动值
   }[];
   snapshot: DaySnapshot; // 清算快照（确认后保存）
+  updatedMatches: Match[]; // 重新计算ratingChanges后的比赛
 }

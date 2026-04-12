@@ -99,7 +99,7 @@ export const Settings: React.FC = () => {
     if (!settlementResult) return;
     setProcessing(true);
     try {
-      await confirmSettlement(settlementResult.date, settlementResult.snapshot);
+      await confirmSettlement(settlementResult);
       setShowSettlementModal(false);
       setSettlementResult(null);
       setSettlementDate(getTodayDate());
@@ -193,7 +193,7 @@ export const Settings: React.FC = () => {
           </button>
         </div>
         <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '8px' }}>
-          清算：核对比赛日积分并归档 | 回滚：删除比赛日数据并恢复积分
+          清算：核对比赛日积分并归档 | 回滚：回退积分和排名到指定日期前
         </p>
       </div>
 
@@ -291,17 +291,23 @@ export const Settings: React.FC = () => {
                     <div style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px' }}>
                       清算日期：{formatDateDisplay(settlementResult.date)}
                     </div>
-                    <div style={{
-                      padding: '8px 12px',
-                      borderRadius: '6px',
-                      backgroundColor: settlementResult.consistent ? 'rgba(82,196,26,0.1)' : 'rgba(245,34,45,0.1)',
-                      color: settlementResult.consistent ? 'var(--success-color, #52c41a)' : 'var(--danger-color)',
-                    }}>
-                      {settlementResult.consistent ? '✅ 数据一致' : '⚠️ 数据不一致'}
-                    </div>
+                    {(() => {
+                      const totalDelta = settlementResult.playerResults.reduce((s, pr) => s + pr.diff, 0);
+                      const balanced = Math.abs(totalDelta) < 0.01;
+                      return (
+                        <div style={{
+                          padding: '8px 12px',
+                          borderRadius: '6px',
+                          backgroundColor: balanced ? 'rgba(82,196,26,0.1)' : 'rgba(245,34,45,0.1)',
+                          color: balanced ? 'var(--success-color, #52c41a)' : 'var(--danger-color)',
+                        }}>
+                          {balanced ? `✅ 积分守恒：加分与减分总和一致` : `⚠️ 积分不守恒：总分偏差 ${totalDelta > 0 ? '+' : ''}${totalDelta.toFixed(1)}`}
+                        </div>
+                      );
+                    })()}
                   </div>
 
-                  <div style={{ fontSize: '14px', marginBottom: '8px', fontWeight: '500' }}>积分对比：</div>
+                  <div style={{ fontSize: '14px', marginBottom: '8px', fontWeight: '500' }}>积分变动：</div>
                   <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
                     {settlementResult.playerResults.map((pr) => (
                       <div key={pr.playerId} style={{
@@ -313,12 +319,12 @@ export const Settings: React.FC = () => {
                       }}>
                         <span>{pr.name}</span>
                         <div style={{ textAlign: 'right', fontSize: '13px' }}>
-                          <span>实时: {pr.realtimeRating}</span>
-                          <span style={{ margin: '0 8px' }}>|</span>
-                          <span>清算: {pr.settledRating}</span>
+                          <span>{pr.ratingBefore}</span>
+                          <span style={{ margin: '0 6px' }}>→</span>
+                          <span style={{ fontWeight: '600' }}>{pr.ratingAfter}</span>
                           <span style={{
                             marginLeft: '8px',
-                            color: pr.diff === 0 ? 'var(--success-color, #52c41a)' : 'var(--danger-color)',
+                            color: pr.diff > 0 ? 'var(--success-color, #52c41a)' : pr.diff < 0 ? 'var(--danger-color)' : 'var(--text-secondary)',
                           }}>
                             ({pr.diff >= 0 ? '+' : ''}{pr.diff})
                           </span>
@@ -376,7 +382,7 @@ export const Settings: React.FC = () => {
             <div className="modal-title">⏪ 回滚比赛日</div>
             <div className="modal-body">
               <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '12px' }}>
-                ⚠️ 回滚将删除该日期的所有比赛，并恢复球员积分到该日期之前的状态。此操作不可撤销！
+                ⚠️ 回滚将恢复球员积分和排名到该日期之前的状态，比赛记录不会被删除。此操作不可撤销！
               </p>
               <p style={{ fontSize: '14px', marginBottom: '12px' }}>
                 选择要回滚的比赛日期：

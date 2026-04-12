@@ -49,7 +49,7 @@ interface AppState {
   // 比赛日清算系统
   getUnsettledDates: () => string[];
   settleDay: (date: string) => Promise<SettlementResult>;
-  confirmSettlement: (date: string, snapshot: DaySnapshot) => Promise<void>;
+  confirmSettlement: (result: import('../types').SettlementResult) => Promise<void>;
   rollbackDay: (date: string) => Promise<void>;
 }
 
@@ -170,8 +170,10 @@ export const useStore = create<AppState>()(
         if (updatedMatch.status !== 'completed') return updatedMatch;
         const allPlayers = [...team1.players, ...team2.players];
         const activeIds = new Set<string>();
-        // 只标记历史已参赛球员（不含本次），rating != 初始值 说明之前打过
-        get().players.forEach(p => { if (p.rating !== undefined && p.rating !== getInitialRating()) activeIds.add(p.id); });
+        // 通过比赛历史判断已参赛球员（不含本次）
+        get().matches.filter(m => m.status === 'completed').forEach(m => {
+          [...m.team1.players, ...m.team2.players].forEach(p => activeIds.add(p.id));
+        });
         const levels = calculateLevels([...get().players, ...allPlayers], activeIds);
         const ratingChanges = calculateRatingChanges(updatedMatch, allPlayers, levels);
         // 生成比赛编号: 日期_序号
@@ -490,19 +492,59 @@ export const useStore = create<AppState>()(
           .filter(m => m.matchDate === date && m.status === 'completed')
           .sort((a, b) => a.createdAt - b.createdAt);
 
+        // 追踪已参赛球员（该日期之前的所有已完成比赛）
+        const processedPlayerIds = new Set<string>();
+        matches.filter(m => m.status === 'completed' && m.matchDate && m.matchDate < date).forEach(m => {
+          [...m.team1.players, ...m.team2.players].forEach(p => processedPlayerIds.add(p.id));
+        });
+
         const settledPlayerData = new Map(basePlayerData);
+        const updatedMatches: Match[] = [];
 
+        // 逐场重新计算 ratingChanges（级别和K值）
         for (const match of dayMatches) {
-          if (!match.ratingChanges) continue;
+          const activeIds = new Set(processedPlayerIds);
 
-          for (const rc of match.ratingChanges) {
+          // 构建去重的球员列表（带当前累计积分）
+          const playersForLevels = new Map<string, Player>();
+          players.forEach(p => {
+            const data = settledPlayerData.get(p.id);
+            playersForLevels.set(p.id, { ...p, rating: data ? data.rating : RATING.INITIAL_RATING });
+          });
+          [...match.team1.players, ...match.team2.players].forEach(p => {
+            const data = settledPlayerData.get(p.id);
+            playersForLevels.set(p.id, { ...p, rating: data ? data.rating : RATING.INITIAL_RATING });
+          });
+
+          const levels = calculateLevels([...playersForLevels.values()], activeIds);
+
+          // 用当前积分创建比赛球员对象
+          const team1Players = match.team1.players.map(p => {
+            const data = settledPlayerData.get(p.id);
+            return { ...p, rating: data ? data.rating : RATING.INITIAL_RATING };
+          });
+          const team2Players = match.team2.players.map(p => {
+            const data = settledPlayerData.get(p.id);
+            return { ...p, rating: data ? data.rating : RATING.INITIAL_RATING };
+          });
+
+          const updatedMatchForCalc = {
+            ...match,
+            team1: { ...match.team1, players: team1Players },
+            team2: { ...match.team2, players: team2Players },
+          };
+
+          const allMatchPlayers = [...team1Players, ...team2Players];
+          const ratingChanges = calculateRatingChanges(updatedMatchForCalc, allMatchPlayers, levels);
+
+          // 应用新的 delta
+          for (const rc of ratingChanges) {
             const current = settledPlayerData.get(rc.playerId) || {
               rating: RATING.INITIAL_RATING,
               wins: 0,
               losses: 0,
               matches: 0
             };
-
             const isWin = rc.delta > 0;
             settledPlayerData.set(rc.playerId, {
               rating: current.rating + rc.delta,
@@ -511,10 +553,20 @@ export const useStore = create<AppState>()(
               matches: current.matches + 1,
             });
           }
+
+          updatedMatches.push({ ...match, ratingChanges });
+
+          // 标记该场比赛球员为已参赛
+          [...match.team1.players, ...match.team2.players].forEach(p => processedPlayerIds.add(p.id));
         }
 
+        // 计算最终级别（用于快照）
         const playerSnapshots: PlayerSnapshot[] = [];
-        const levels = calculateLevels(players);
+        const finalPlayers = players.map(p => {
+          const data = settledPlayerData.get(p.id);
+          return { ...p, rating: data ? data.rating : RATING.INITIAL_RATING };
+        });
+        const finalLevels = calculateLevels(finalPlayers, processedPlayerIds);
 
         for (const [playerId, data] of settledPlayerData) {
           const player = players.find(p => p.id === playerId);
@@ -523,7 +575,7 @@ export const useStore = create<AppState>()(
               playerId,
               name: player.name,
               rating: data.rating,
-              level: levels.get(playerId) ?? -1,
+              level: finalLevels.get(playerId) ?? -1,
               totalWins: data.wins,
               totalLosses: data.losses,
               totalMatches: data.matches,
@@ -541,30 +593,38 @@ export const useStore = create<AppState>()(
         };
 
         const playerResults = players.map(player => {
-          const realtimeRating = player.rating ?? RATING.INITIAL_RATING;
+          const ratingBefore = player.rating ?? RATING.INITIAL_RATING;
           const settledData = settledPlayerData.get(player.id);
-          const settledRating = settledData ? settledData.rating : RATING.INITIAL_RATING;
+          const ratingAfter = settledData ? settledData.rating : RATING.INITIAL_RATING;
           return {
             playerId: player.id,
             name: player.name,
-            realtimeRating,
-            settledRating,
-            diff: realtimeRating - settledRating,
+            ratingBefore,
+            ratingAfter,
+            diff: ratingAfter - ratingBefore,
           };
         });
 
-        const consistent = playerResults.every(pr => pr.diff === 0);
+        // 校验积分守恒：当日总分增减应相等
+        const totalDelta = playerResults.reduce((sum, pr) => sum + pr.diff, 0);
+        if (Math.abs(totalDelta) > 0.01) {
+          get().showNotification(
+            `积分校验失败：当日总分变动不为零（${totalDelta > 0 ? '+' : ''}${totalDelta.toFixed(1)}），请检查比赛数据`,
+            'error'
+          );
+          throw new Error(`积分不守恒：当日总分变动为 ${totalDelta}`);
+        }
 
         return {
           date,
-          consistent,
           playerResults,
           snapshot,
+          updatedMatches,
         };
       },
 
-      confirmSettlement: async (date: string, snapshot: DaySnapshot) => {
-        const finalSnapshot = { ...snapshot, status: 'settled' as const };
+      confirmSettlement: async (result: SettlementResult) => {
+        const finalSnapshot = { ...result.snapshot, status: 'settled' as const };
 
         try {
           await db.addDaySnapshot(finalSnapshot);
@@ -573,8 +633,43 @@ export const useStore = create<AppState>()(
           throw err;
         }
 
+        // 更新比赛的 ratingChanges（重新计算的级别和K值）
+        for (const match of result.updatedMatches) {
+          try {
+            await db.updateMatch(match.id, { ratingChanges: match.ratingChanges });
+          } catch (err) {
+            console.error('更新比赛积分变动失败:', err);
+          }
+        }
+
+        // 根据清算快照更新球员积分，确保数据一致性
+        const players = get().players;
+        const snapshotRatingMap = new Map(
+          finalSnapshot.playerSnapshots.map(ps => [ps.playerId, ps.rating])
+        );
+        const updatedPlayers = players.map(p => {
+          const settledRating = snapshotRatingMap.get(p.id);
+          return settledRating !== undefined ? { ...p, rating: settledRating } : p;
+        });
+
+        for (const p of updatedPlayers) {
+          const original = players.find(op => op.id === p.id);
+          if (original && original.rating !== p.rating) {
+            try {
+              await db.updatePlayerRating(p.id, p.rating ?? RATING.INITIAL_RATING);
+            } catch (err) {
+              console.error('更新球员积分失败:', err);
+            }
+          }
+        }
+
         set((state) => ({
           daySnapshots: [...state.daySnapshots, finalSnapshot],
+          players: updatedPlayers,
+          matches: state.matches.map(m => {
+            const updated = result.updatedMatches.find(um => um.id === m.id);
+            return updated || m;
+          }),
         }));
       },
 
@@ -612,15 +707,6 @@ export const useStore = create<AppState>()(
           restoredPlayers = get().players.map(p => ({ ...p, rating: RATING.INITIAL_RATING }));
         }
 
-        const matchesToDelete = matches.filter(m => m.matchDate === date);
-        for (const m of matchesToDelete) {
-          try {
-            await db.deleteMatch(m.id);
-          } catch (err) {
-            console.error('删除比赛失败:', err);
-          }
-        }
-
         for (const p of restoredPlayers) {
           try {
             await db.updatePlayerRating(p.id, p.rating ?? RATING.INITIAL_RATING);
@@ -631,7 +717,6 @@ export const useStore = create<AppState>()(
 
         set({
           players: restoredPlayers,
-          matches: matches.filter(m => m.matchDate !== date),
           daySnapshots: daySnapshots.filter(s => s.date < date),
         });
       },
