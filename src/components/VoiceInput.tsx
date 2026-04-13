@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useStore } from '../store';
 import { validateGameScore } from '../utils/scoreValidator';
+import { generateId } from '../utils/helpers';
 import { splitTeamNames } from '../utils/nameSplitter';
 import { calculateRatingChanges, applyRatingChanges, calculateLevels } from '../utils/rating';
 import { nameToPinyinKey, pinyinMatch } from '../utils/pinyin';
@@ -85,7 +86,7 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({ onMatchCreated }) => {
       const [s1, s2] = scores[0];
       const winner: 'team1' | 'team2' = s1 > s2 ? 'team1' : 'team2';
       const match: Match = {
-        id: Date.now().toString(36) + Math.random().toString(36).substr(2, 9),
+        id: generateId(),
         type: matchType,
         mode: 'single' as const,
         scoreMode: 'direct-input' as const,
