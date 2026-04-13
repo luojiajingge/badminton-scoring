@@ -27,7 +27,7 @@ function parseInputText(text: string): {
   const sv = validateGameScore(s1, s2);
   if (!sv.valid) return { team1Names: [], team2Names: [], scores: [[0, 0]], error: sv.error };
   let playerPart = cleaned.slice(0, scoreExtract.index!);
-  playerPart = playerPart.replace(/比分\s*$/, '');
+  playerPart = playerPart.replace(/比分[、\s]*$/, '');
   const sepPattern = /[对]|vs|VS|对战|PK|pk/;
   const parts = playerPart.split(sepPattern).filter(s => s.trim());
   if (parts.length < 2) return null;
