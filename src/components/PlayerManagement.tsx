@@ -13,8 +13,10 @@ interface PlayerChartsProps {
   playerName: string;
 }
 
-const PlayerCharts: React.FC<PlayerChartsProps> = ({ playerId }) => {
+const PlayerCharts: React.FC<PlayerChartsProps> = ({ playerId, playerName }) => {
   const matches = useStore((state) => state.matches);
+  const allPlayers = useStore((state) => state.players);
+  const [shareNotice, setShareNotice] = useState<string | null>(null);
 
   const stats = useMemo(() => {
     const playerMatches = matches.filter(m =>
@@ -24,29 +26,31 @@ const PlayerCharts: React.FC<PlayerChartsProps> = ({ playerId }) => {
 
     if (playerMatches.length === 0) return null;
 
-    // 胜负趋势
-    const trend = playerMatches.map(m => {
+    // 按日期汇总胜负趋势
+    const dateMap = new Map<string, { wins: number; losses: number }>();
+    playerMatches.forEach(m => {
       const isTeam1 = m.team1.players.some(p => p.id === playerId);
       const won = (m.winner === 'team1' && isTeam1) || (m.winner === 'team2' && !isTeam1);
-      const date = new Date(m.createdAt);
-      const dateStr = `${date.getMonth() + 1}/${date.getDate()}`;
-      return { date: dateStr, result: won ? 1 : 0, won, label: won ? '胜' : '负' };
+      const dateStr = m.matchDate || new Date(m.createdAt).toISOString().split('T')[0];
+      const displayDate = dateStr.slice(5).replace('-', '/');
+      const entry = dateMap.get(displayDate) || { wins: 0, losses: 0 };
+      if (won) entry.wins++; else entry.losses++;
+      dateMap.set(displayDate, entry);
     });
+    const trendData = Array.from(dateMap.entries()).map(([date, { wins, losses }]) => ({
+      date, 胜: wins, 负: losses,
+    }));
 
-    // 每场比赛得分详情
-    const scoreDetails = playerMatches.map((m, idx) => {
-      const isTeam1 = m.team1.players.some(p => p.id === playerId);
-      const teamScore = isTeam1 ? m.team1.score : m.team2.score;
-      const oppScore = isTeam1 ? m.team2.score : m.team1.score;
-      const won = (m.winner === 'team1' && isTeam1) || (m.winner === 'team2' && !isTeam1);
-      return {
-        match: `第${idx + 1}场`,
-        我的得分: teamScore,
-        对手得分: oppScore,
-        差值: teamScore - oppScore,
-        结果: won ? '胜' : '负',
-      };
+    // 活跃日期分布
+    const activeDateMap = new Map<string, number>();
+    playerMatches.forEach(m => {
+      const dateStr = m.matchDate || new Date(m.createdAt).toISOString().split('T')[0];
+      const displayDate = dateStr.slice(5).replace('-', '/');
+      activeDateMap.set(displayDate, (activeDateMap.get(displayDate) || 0) + 1);
     });
+    const activeDateData = Array.from(activeDateMap.entries()).map(([date, count]) => ({
+      日期: date, 场次: count,
+    }));
 
     // 对手分布
     const opponentMap = new Map<string, { name: string; wins: number; losses: number }>();
@@ -66,27 +70,70 @@ const PlayerCharts: React.FC<PlayerChartsProps> = ({ playerId }) => {
       负: o.losses,
     }));
 
-    // 比赛时段分布
-    const hourMap = new Map<number, number>();
-    playerMatches.forEach(m => {
-      const hour = new Date(m.createdAt).getHours();
-      hourMap.set(hour, (hourMap.get(hour) || 0) + 1);
-    });
-    const hourData = Array.from(hourMap.entries()).map(([hour, count]) => ({
-      时段: `${hour}:00`,
-      比赛场次: count,
-    }));
-
     // 总胜率
-    const wins = trend.filter(t => t.won).length;
-    const losses = trend.length - wins;
+    const wins = playerMatches.filter(m => {
+      const isTeam1 = m.team1.players.some(p => p.id === playerId);
+      return (m.winner === 'team1' && isTeam1) || (m.winner === 'team2' && !isTeam1);
+    }).length;
+    const losses = playerMatches.length - wins;
     const pieData = [
       { name: '胜', value: wins },
       { name: '负', value: losses },
     ];
 
-    return { trend, scoreDetails, opponentData, hourData, pieData, totalMatches: playerMatches.length, wins, losses };
+    return { trendData, activeDateData, opponentData, pieData, totalMatches: playerMatches.length, wins, losses };
   }, [matches, playerId]);
+
+  const handleShare = () => {
+    const player = allPlayers.find(p => p.id === playerId);
+    if (!player || !stats) return;
+
+    const rating = getPlayerRating(player);
+    const levels = calculateLevels(allPlayers);
+    const level = levels.get(playerId);
+    const levelLabel = level !== undefined && level >= 0 ? getLevelLabel(level) : '未定级';
+
+    // 计算排名
+    const sorted = [...allPlayers].sort((a, b) => (b.rating ?? 2000) - (a.rating ?? 2000));
+    const rank = sorted.findIndex(p => p.id === playerId) + 1;
+    const winRate = stats.totalMatches > 0 ? Math.round((stats.wins / stats.totalMatches) * 100) : 0;
+
+    // 诙谐评价
+    let comment = '';
+    if (stats.totalMatches < 3) {
+      comment = '🏸 新手上路，未来可期！';
+    } else if (winRate >= 80) {
+      comment = '👑 球场霸主，谁来挑战？';
+    } else if (winRate >= 60) {
+      comment = '🔥 实力选手，稳如泰山！';
+    } else if (winRate >= 50) {
+      comment = '⚔️ 势均力敌，越战越勇！';
+    } else if (winRate >= 30) {
+      comment = '💪 屡败屡战，精神可嘉！';
+    } else {
+      comment = '🎯 积分扶贫大使，人人爱打！';
+    }
+    if (rating >= 2200) comment = '🏆 积分天花板，独孤求败！' + comment;
+    if (rank === 1 && allPlayers.length > 3) comment = '🥇 天下第一，谁与争锋！';
+
+    const text = [
+      `🏸 球员名片 | ${playerName}`,
+      `━━━━━━━━━━━━━━━`,
+      `📊 总场次: ${stats.totalMatches}  胜: ${stats.wins}  负: ${stats.losses}`,
+      `📈 胜率: ${winRate}%  |  积分: ${rating}  |  级别: ${levelLabel}`,
+      `🏅 排名: 第${rank}名 / 共${allPlayers.length}人`,
+      `━━━━━━━━━━━━━━━`,
+      comment,
+    ].join('\n');
+
+    navigator.clipboard.writeText(text).then(() => {
+      setShareNotice('✅ 已复制到剪贴板，可直接粘贴到微信分享');
+      setTimeout(() => setShareNotice(null), 3000);
+    }).catch(() => {
+      setShareNotice('❌ 复制失败，请手动复制');
+      setTimeout(() => setShareNotice(null), 3000);
+    });
+  };
 
   if (!stats) {
     return <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-secondary)' }}>暂无比赛数据</div>;
@@ -94,8 +141,8 @@ const PlayerCharts: React.FC<PlayerChartsProps> = ({ playerId }) => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '12px 0' }}>
-      {/* 概览卡片 */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+      {/* 概览卡片 + 分享按钮 */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
         <div style={{ background: 'var(--bg-secondary)', borderRadius: '10px', padding: '12px', textAlign: 'center' }}>
           <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--primary-color)' }}>{stats.totalMatches}</div>
           <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>总场次</div>
@@ -108,7 +155,26 @@ const PlayerCharts: React.FC<PlayerChartsProps> = ({ playerId }) => {
           <div style={{ fontSize: '24px', fontWeight: 700, color: '#ff4d4f' }}>{stats.losses}</div>
           <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>负场</div>
         </div>
+        <button
+          onClick={handleShare}
+          style={{
+            background: 'var(--primary-color)', color: '#fff', border: 'none', borderRadius: '10px',
+            padding: '12px', fontSize: '14px', fontWeight: 600, cursor: 'pointer',
+          }}
+        >
+          一键分享
+        </button>
       </div>
+
+      {shareNotice && (
+        <div style={{
+          padding: '10px', borderRadius: '8px', fontSize: '13px', textAlign: 'center',
+          backgroundColor: shareNotice.startsWith('✅') ? 'rgba(82,196,26,0.1)' : 'rgba(245,34,45,0.1)',
+          color: shareNotice.startsWith('✅') ? '#52c41a' : '#ff4d4f',
+        }}>
+          {shareNotice}
+        </div>
+      )}
 
       {/* 胜负比例饼图 */}
       <div className="card">
@@ -132,37 +198,21 @@ const PlayerCharts: React.FC<PlayerChartsProps> = ({ playerId }) => {
         </ResponsiveContainer>
       </div>
 
-      {/* 胜负趋势 */}
+      {/* 胜负趋势（柱形图） */}
       <div className="card">
         <div className="card-title">胜负趋势</div>
-        <ResponsiveContainer width="100%" height={160}>
-          <AreaChart data={stats.trend}>
+        <ResponsiveContainer width="100%" height={180}>
+          <BarChart data={stats.trendData}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
             <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-            <YAxis domain={[0, 1]} ticks={[0, 1]} tickFormatter={v => v === 1 ? '胜' : '负'} tick={{ fontSize: 11 }} />
-            <Tooltip formatter={(v: any) => v === 1 ? '胜' : '负'} />
-            <Area type="monotone" dataKey="result" stroke="#1890ff" fill="#1890ff" fillOpacity={0.15} />
-          </AreaChart>
+            <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+            <Tooltip />
+            <Legend wrapperStyle={{ fontSize: 12 }} />
+            <Bar dataKey="胜" stackId="a" fill="#52c41a" radius={[2, 2, 0, 0]} />
+            <Bar dataKey="负" stackId="a" fill="#ff4d4f" radius={[2, 2, 0, 0]} />
+          </BarChart>
         </ResponsiveContainer>
       </div>
-
-      {/* 每场比赛得分对比 */}
-      {stats.scoreDetails.length > 0 && (
-        <div className="card">
-          <div className="card-title">比赛得分对比</div>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={stats.scoreDetails}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
-              <XAxis dataKey="match" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip />
-              <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="我的得分" fill="#1890ff" radius={[2, 2, 0, 0]} />
-              <Bar dataKey="对手得分" fill="#ff4d4f" radius={[2, 2, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      )}
 
       {/* 对手分布 */}
       {stats.opponentData.length > 0 && (
@@ -185,17 +235,17 @@ const PlayerCharts: React.FC<PlayerChartsProps> = ({ playerId }) => {
         </div>
       )}
 
-      {/* 比赛时段分布 */}
-      {stats.hourData.length > 1 && (
+      {/* 活跃日期分布 */}
+      {stats.activeDateData.length > 0 && (
         <div className="card">
-          <div className="card-title">活跃时段</div>
+          <div className="card-title">活跃日期</div>
           <ResponsiveContainer width="100%" height={160}>
-            <BarChart data={stats.hourData}>
+            <BarChart data={stats.activeDateData}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
-              <XAxis dataKey="时段" tick={{ fontSize: 11 }} />
+              <XAxis dataKey="日期" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
               <Tooltip />
-              <Bar dataKey="比赛场次" fill="#722ed1" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="场次" fill="#722ed1" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
