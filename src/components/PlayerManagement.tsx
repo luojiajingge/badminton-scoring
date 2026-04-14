@@ -240,7 +240,8 @@ const PlayerCharts: React.FC<PlayerChartsProps> = ({ playerId, playerName }) => 
     // 连胜/连败彩蛋
     let streakNote = '';
     if (stats.maxWinStreak >= 5) streakNote = `\\n🔥 最长连胜: ${stats.maxWinStreak}场`;
-    if (stats.maxLoseStreak >= 5) streakNote = `\\n💀 最长连败: ${stats.maxLoseStreak}场`;
+    if (stats.maxLoseStreak >= 5) streakNote += `
+💀 最长连败: ${stats.maxLoseStreak}场`;
 
     const text = [
       `🏸 球员战报 | ${playerName}`,
@@ -257,7 +258,7 @@ const PlayerCharts: React.FC<PlayerChartsProps> = ({ playerId, playerName }) => 
       `稳定性: ${stabilityStars} ${stabilityTag}——${stabilityDesc}`,
       `━━━━━━━━━━━━━━━`,
       `💬 ${oneLiner}`,
-    ].join('\\n');
+    ].join('\n');
 
     navigator.clipboard.writeText(text).then(() => {
       setShareNotice('✅ 已复制到剪贴板，可直接粘贴到微信分享');
