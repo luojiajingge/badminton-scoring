@@ -81,8 +81,47 @@ const PlayerCharts: React.FC<PlayerChartsProps> = ({ playerId, playerName }) => 
       { name: '负', value: losses },
     ];
 
-    return { trendData, activeDateData, opponentData, pieData, totalMatches: playerMatches.length, wins, losses };
+    // 比分分析：焦灼局（分差<=3）vs 碾压局（分差>=8）
+    let closeGames = 0, blowoutGames = 0, totalScoreDiff = 0;
+    playerMatches.forEach(m => {
+      const isTeam1 = m.team1.players.some(p => p.id === playerId);
+      const won = (m.winner === 'team1' && isTeam1) || (m.winner === 'team2' && !isTeam1);
+      if (m.games && m.games.length > 0) {
+        m.games.forEach(g => {
+          const myScore = isTeam1 ? g.team1Score : g.team2Score;
+          const oppScore = isTeam1 ? g.team2Score : g.team1Score;
+          const diff = Math.abs(myScore - oppScore);
+          totalScoreDiff += diff;
+          if (diff <= 3) closeGames++;
+          if (diff >= 8) blowoutGames++;
+        });
+      }
+    });
+
+    // 连胜/连败分析
+    let maxWinStreak = 0, maxLoseStreak = 0, curStreak = 0, curIsWin = false;
+    playerMatches.forEach(m => {
+      const isTeam1 = m.team1.players.some(p => p.id === playerId);
+      const won = (m.winner === 'team1' && isTeam1) || (m.winner === 'team2' && !isTeam1);
+      if (won === curIsWin) { curStreak++; }
+      else { curStreak = 1; curIsWin = won; }
+      if (curIsWin && curStreak > maxWinStreak) maxWinStreak = curStreak;
+      if (!curIsWin && curStreak > maxLoseStreak) maxLoseStreak = curStreak;
+    });
+
+    // 打球频度（天数为单位）
+    const playDays = new Set(playerMatches.map(m => m.matchDate || new Date(m.createdAt).toISOString().split('T')[0])).size;
+    const avgPerDay = playerMatches.length > 0 ? (playerMatches.length / playDays).toFixed(1) : '0';
+
+    return {
+      trendData, activeDateData, opponentData, pieData,
+      totalMatches: playerMatches.length, wins, losses,
+      closeGames, blowoutGames, avgScoreDiff: playerMatches.length > 0 ? (totalScoreDiff / playerMatches.length).toFixed(1) : '0',
+      maxWinStreak, maxLoseStreak, playDays, avgPerDay,
+    };
   }, [matches, playerId]);
+
+  const stars = (n: number) => '★'.repeat(Math.min(5, Math.max(1, n)));
 
   const handleShare = () => {
     const player = allPlayers.find(p => p.id === playerId);
@@ -93,38 +132,132 @@ const PlayerCharts: React.FC<PlayerChartsProps> = ({ playerId, playerName }) => 
     const level = levels.get(playerId);
     const levelLabel = level !== undefined && level >= 0 ? getLevelLabel(level) : '未定级';
 
-    // 计算排名
     const sorted = [...allPlayers].sort((a, b) => (b.rating ?? 2000) - (a.rating ?? 2000));
     const rank = sorted.findIndex(p => p.id === playerId) + 1;
     const winRate = stats.totalMatches > 0 ? Math.round((stats.wins / stats.totalMatches) * 100) : 0;
+    const t = stats.totalMatches;
 
-    // 诙谐评价
-    let comment = '';
-    if (stats.totalMatches < 3) {
-      comment = '🏸 新手上路，未来可期！';
-    } else if (winRate >= 80) {
-      comment = '👑 球场霸主，谁来挑战？';
-    } else if (winRate >= 60) {
-      comment = '🔥 实力选手，稳如泰山！';
-    } else if (winRate >= 50) {
-      comment = '⚔️ 势均力敌，越战越勇！';
-    } else if (winRate >= 30) {
-      comment = '💪 屡败屡战，精神可嘉！';
-    } else {
-      comment = '🎯 积分扶贫大使，人人爱打！';
+    // === 五维画像 ===
+
+    // 1. 活跃度 (1-5)
+    let activityLevel = 1;
+    if (t >= 50) activityLevel = 5;
+    else if (t >= 30) activityLevel = 4;
+    else if (t >= 15) activityLevel = 3;
+    else if (t >= 5) activityLevel = 2;
+    const activityStars = stars(activityLevel);
+    const activityTag = ['', '佛系选手', '偶尔露面', '羽球常客', '羽球狂人', '着魔了'][activityLevel];
+    const activityDesc = [
+      '来无影去无踪，神龙见首不见尾',
+      '偶尔来打打，主打一个参与感',
+      '球场老面孔，风雨无阻',
+      '一周不打手痒，两天不打心慌',
+      '不是在打球，就是在去打球的路上',
+    ][activityLevel - 1];
+
+    // 2. 硬实力 (1-5)
+    let powerLevel = 1;
+    if (rating >= 2200) powerLevel = 5;
+    else if (rating >= 2100) powerLevel = 4;
+    else if (rating >= 2000) powerLevel = 3;
+    else if (rating >= 1900) powerLevel = 2;
+    const powerStars = stars(powerLevel);
+    const powerTag = ['', '萌新入门', '稳步进阶', '中坚力量', '实力高手', '积分天花板'][powerLevel];
+    const powerDesc = [
+      '球场上最可爱的存在',
+      '每天都在进步，潜力股',
+      '积分榜中游，不好惹的存在',
+      '积分榜上游，实力说话',
+      '独孤求败，高处不胜寒',
+    ][powerLevel - 1];
+
+    // 3. 统治力 (1-5)
+    let dominanceLevel = 1;
+    if (winRate >= 75) dominanceLevel = 5;
+    else if (winRate >= 60) dominanceLevel = 4;
+    else if (winRate >= 45) dominanceLevel = 3;
+    else if (winRate >= 30) dominanceLevel = 2;
+    const dominanceStars = stars(dominanceLevel);
+    const dominanceTag = ['', '提分宝宝', '有来有回', '胜率过半', '胜率机器', '降维打击'][dominanceLevel];
+    const dominanceDesc = [
+      '深得民心，人人都爱跟你打',
+      '五五开选手，谁打都不怕',
+      '赢多输少，对手的噩梦',
+      '胜率就是你的名片',
+      '对手见面先问：今天能不能放水？',
+    ][dominanceLevel - 1];
+
+    // 4. 比赛风格 (1-5)
+    const totalGames = stats.closeGames + stats.blowoutGames;
+    let styleTag = '稳扎稳打';
+    let styleDesc = '每分必争，稳中求胜';
+    if (totalGames > 0) {
+      const closeRatio = stats.closeGames / totalGames;
+      const blowRatio = stats.blowoutGames / totalGames;
+      if (closeRatio > 0.5) { styleTag = '刀尖舞者'; styleDesc = '擅长焦灼局，大心脏选手'; }
+      else if (blowRatio > 0.5 && winRate >= 50) { styleTag = '绝不留情'; styleDesc = '从不拖泥带水，赢球不废话'; }
+      else if (blowRatio > 0.5 && winRate < 50) { styleTag = '快乐至上'; styleDesc = '比分不重要，出出汗就行'; }
     }
-    if (rating >= 2200) comment = '🏆 积分天花板，独孤求败！' + comment;
-    if (rank === 1 && allPlayers.length > 3) comment = '🥇 天下第一，谁与争锋！';
+
+    // 5. 稳定性 (1-5)
+    let stabilityLevel = 3;
+    if (stats.maxWinStreak >= 5 || stats.maxLoseStreak >= 5) stabilityLevel = 2;
+    if (stats.maxWinStreak >= 3 && stats.maxLoseStreak >= 3) stabilityLevel = 1;
+    if (stats.maxWinStreak <= 3 && stats.maxLoseStreak <= 2) stabilityLevel = 4;
+    if (stats.maxLoseStreak <= 1 && t >= 10) stabilityLevel = 5;
+    const stabilityStars = stars(stabilityLevel);
+    const stabilityTag = ['', '过山车', '状态型', '一般般', '很稳定', '稳如老狗'][stabilityLevel];
+    const stabilityDesc = [
+      '不是超神就是超鬼，看心情',
+      '状态好谁都能赢，状态差谁都能输',
+      '发挥中规中矩，偶有亮点',
+      '发挥稳定，值得信赖',
+      '发挥永远在水准之上',
+    ][stabilityLevel - 1];
+
+    // 一句话评价（根据画像组合）
+    let oneLiner = '';
+    if (t < 3) {
+      oneLiner = '新手上路，传奇待续。羽毛球场，等你来战！';
+    } else if (powerLevel >= 5 && dominanceLevel >= 5) {
+      oneLiner = '积分榜的常客，对手的噩梦。别人打球靠运气，你打球靠实力。';
+    } else if (activityLevel >= 4 && dominanceLevel <= 2) {
+      oneLiner = '铁打的球架流水的分——输了比赛赢了快乐，积分界的活菩萨。';
+    } else if (activityLevel <= 2 && dominanceLevel >= 4) {
+      oneLiner = '不鸣则已一鸣惊人。传说中的"神秘高手"，出手即是胜利。';
+    } else if (stabilityLevel <= 2) {
+      oneLiner = '状态型选手，今天超神还是超鬼？掷个硬币吧。';
+    } else if (styleTag === '刀尖舞者') {
+      oneLiner = '专打关键分，心脏不好别跟你打。焦灼局？那只是日常。';
+    } else if (powerLevel >= 4 && dominanceLevel >= 4) {
+      oneLiner = '实力与战绩齐飞，积分共排名一色。球场上最靓的仔。';
+    } else if (dominanceLevel >= 3) {
+      oneLiner = '稳扎稳打步步为营，球场的常青树。不突出，但不好惹。';
+    } else {
+      oneLiner = '热爱可抵岁月长，每次挥拍都是对羽毛球的深情告白。';
+    }
+
+    // 连胜/连败彩蛋
+    let streakNote = '';
+    if (stats.maxWinStreak >= 5) streakNote = `\\n🔥 最长连胜: ${stats.maxWinStreak}场`;
+    if (stats.maxLoseStreak >= 5) streakNote = `\\n💀 最长连败: ${stats.maxLoseStreak}场`;
 
     const text = [
-      `🏸 球员名片 | ${playerName}`,
+      `🏸 球员战报 | ${playerName}`,
       `━━━━━━━━━━━━━━━`,
-      `📊 总场次: ${stats.totalMatches}  胜: ${stats.wins}  负: ${stats.losses}`,
-      `📈 胜率: ${winRate}%  |  积分: ${rating}  |  级别: ${levelLabel}`,
-      `🏅 排名: 第${rank}名 / 共${allPlayers.length}人`,
+      `📊 ${t}场 ${stats.wins}胜${stats.losses}负  胜率${winRate}%  积分${rating}`,
+      `🏅 排名: 第${rank}/${allPlayers.length}人  级别: ${levelLabel}`,
+      `📅 活跃${stats.playDays}天  日均${stats.avgPerDay}场${streakNote}`,
       `━━━━━━━━━━━━━━━`,
-      comment,
-    ].join('\n');
+      `🎭 球员画像`,
+      `活跃度: ${activityStars} ${activityTag}——${activityDesc}`,
+      `硬实力: ${powerStars} ${powerTag}——${powerDesc}`,
+      `统治力: ${dominanceStars} ${dominanceTag}——${dominanceDesc}`,
+      `风  格: ${styleTag}——${styleDesc}`,
+      `稳定性: ${stabilityStars} ${stabilityTag}——${stabilityDesc}`,
+      `━━━━━━━━━━━━━━━`,
+      `💬 ${oneLiner}`,
+    ].join('\\n');
 
     navigator.clipboard.writeText(text).then(() => {
       setShareNotice('✅ 已复制到剪贴板，可直接粘贴到微信分享');
