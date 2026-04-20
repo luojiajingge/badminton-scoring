@@ -326,8 +326,16 @@ export const useStore = create<AppState>()(
       },
 
       deleteMatch: async (id) => {
-        const { players, matches } = get();
+        const { players, matches, daySnapshots } = get();
         const match = matches.find(m => m.id === id);
+        // 禁止删除已清算日的比赛
+        if (match?.matchDate) {
+          const settled = daySnapshots.some(s => s.status === 'settled' && s.date === match.matchDate);
+          if (settled) {
+            get().showNotification('该比赛属于已清算日，无法删除。如需修改请先回滚该日清算', 'error');
+            return;
+          }
+        }
         let updatedPlayers = players;
         if (match?.ratingChanges) {
           const adjustments = new Map<string, number>();
@@ -357,7 +365,15 @@ export const useStore = create<AppState>()(
       },
 
       deleteMatches: async (ids) => {
-        const { players, matches } = get();
+        const { players, matches, daySnapshots } = get();
+        // 禁止删除已清算日的比赛
+        const settledDates = new Set(daySnapshots.filter(s => s.status === 'settled').map(s => s.date));
+        const hasSettled = matches.some(m => ids.includes(m.id) && m.matchDate && settledDates.has(m.matchDate));
+        if (hasSettled) {
+          get().showNotification('选中的比赛包含已清算日的比赛，无法删除。如需修改请先回滚该日清算', 'error');
+          throw new Error('包含已清算日的比赛');
+        }
+
         const ratingAdjustments: Map<string, number> = new Map();
 
         for (const id of ids) {
@@ -593,7 +609,8 @@ export const useStore = create<AppState>()(
         };
 
         const playerResults = players.map(player => {
-          const ratingBefore = player.rating ?? RATING.INITIAL_RATING;
+          const baseData = basePlayerData.get(player.id);
+          const ratingBefore = baseData ? baseData.rating : RATING.INITIAL_RATING;
           const settledData = settledPlayerData.get(player.id);
           const ratingAfter = settledData ? settledData.rating : RATING.INITIAL_RATING;
           return {

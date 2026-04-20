@@ -23,6 +23,7 @@ export const Settings: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [confirmStep, setConfirmStep] = useState(0);
+  const [showRatingSection, setShowRatingSection] = useState(false);
 
   // 清算相关状态
   const [showSettlementModal, setShowSettlementModal] = useState(false);
@@ -153,21 +154,6 @@ export const Settings: React.FC = () => {
         </div>
       </div>
 
-      {/* Rating Management */}
-      <div className="card">
-        <div className="card-title">积分管理</div>
-        <button
-          className="btn btn-danger btn-full"
-          onClick={() => setShowResetConfirm(true)}
-          disabled={players.length === 0}
-        >
-          🔄 重置所有球员积分
-        </button>
-        <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '8px' }}>
-          将所有球员积分重置为初始值 ({RATING.INITIAL_RATING})
-        </p>
-      </div>
-
       {/* 比赛日清算管理 */}
       <div className="card">
         <div className="card-title">比赛日清算</div>
@@ -256,8 +242,46 @@ export const Settings: React.FC = () => {
         <div style={{ fontSize: '24px', marginBottom: '8px' }}>🏸</div>
         <div className="card-title" style={{ marginBottom: '4px' }}>云行智远，羽你共舞</div>
         <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-          版本 1.0.0 | 数据存储在本地浏览器中
+          版本 2.0.0 | 数据存储在云端数据库中
         </p>
+      </div>
+
+      {/* Rating Management - 底部，需展开确认 */}
+      <div className="card" style={{ opacity: 0.85 }}>
+        <div
+          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+          onClick={() => setShowRatingSection(!showRatingSection)}
+        >
+          <div className="card-title" style={{ marginBottom: 0, fontSize: '14px', color: 'var(--text-secondary)' }}>
+            ⚙️ 积分管理（高级）
+          </div>
+          <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+            {showRatingSection ? '▲ 收起' : '▼ 展开'}
+          </span>
+        </div>
+        {showRatingSection && (
+          <div style={{ marginTop: '12px' }}>
+            <div style={{
+              padding: '10px 12px',
+              backgroundColor: 'rgba(250,173,20,0.1)',
+              border: '1px solid rgba(250,173,20,0.3)',
+              borderRadius: '8px',
+              marginBottom: '12px',
+              fontSize: '13px',
+              color: 'var(--warning-color)',
+              lineHeight: 1.6,
+            }}>
+              ⚠️ <b>风险提示：</b>重置积分将清除所有球员的积分数据，恢复为初始值 ({RATING.INITIAL_RATING})。此操作<b>不可撤销</b>，请谨慎使用！
+            </div>
+            <button
+              className="btn btn-danger btn-full"
+              onClick={() => setShowResetConfirm(true)}
+              disabled={players.length === 0}
+            >
+              🔄 重置所有球员积分
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 清算模态框 */}

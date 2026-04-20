@@ -9,6 +9,7 @@ const navItems = [
   { id: 'match', label: '比赛' },
   { id: 'history', label: '历史' },
   { id: 'leaderboard', label: '排行' },
+  { id: 'report', label: '报告' },
   { id: 'players', label: '球员' },
   { id: 'settings', label: '设置' },
 ];

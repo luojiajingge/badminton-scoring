@@ -239,7 +239,7 @@ const PlayerCharts: React.FC<PlayerChartsProps> = ({ playerId, playerName }) => 
 
     // 连胜/连败彩蛋
     let streakNote = '';
-    if (stats.maxWinStreak >= 5) streakNote = `\\n🔥 最长连胜: ${stats.maxWinStreak}场`;
+    if (stats.maxWinStreak >= 5) streakNote = `\n🔥 最长连胜: ${stats.maxWinStreak}场`;
     if (stats.maxLoseStreak >= 5) streakNote += `
 💀 最长连败: ${stats.maxLoseStreak}场`;
 

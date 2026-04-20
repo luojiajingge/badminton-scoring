@@ -8,6 +8,7 @@ import { Leaderboard } from './components/Leaderboard';
 import { Statistics } from './components/Statistics';
 import { Settings } from './components/Settings';
 import { PlayerManagement } from './components/PlayerManagement';
+import { DayReport } from './components/DayReport';
 import { Toast } from './components/Toast';
 import { useStore } from './store';
 import './styles/global.css';
@@ -120,6 +121,7 @@ function App() {
       case 'leaderboard': return <Leaderboard />;
       case 'history': return <MatchHistory />;
       case 'stats': return <Statistics />;
+      case 'report': return <DayReport />;
       case 'players': return <PlayerManagement />;
       case 'settings': return <Settings />;
       default:
