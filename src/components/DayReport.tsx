@@ -451,7 +451,7 @@ export const DayReport: React.FC = () => {
             <BarChart data={winRateChartData} margin={{ top: 5, right: 5, bottom: 5, left: -15 }}>
               <XAxis dataKey="name" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} domain={[0, 100]} unit="%" />
-              <Tooltip formatter={(v: number) => `${v}%`} />
+              <Tooltip formatter={(v) => `${v}%`} />
               <Bar dataKey="胜率" radius={[4, 4, 0, 0]}>
                 {winRateChartData.map((entry, i) => (
                   <Cell
@@ -473,7 +473,7 @@ export const DayReport: React.FC = () => {
             <BarChart data={ratingDeltaChartData} margin={{ top: 5, right: 5, bottom: 5, left: -15 }}>
               <XAxis dataKey="name" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip formatter={(v: number) => `${v >= 0 ? '+' : ''}${v}`} />
+              <Tooltip formatter={(v) => `${Number(v) >= 0 ? '+' : ''}${v}`} />
               <Bar dataKey="积分变动" radius={[4, 4, 0, 0]}>
                 {ratingDeltaChartData.map((entry, i) => (
                   <Cell key={i} fill={entry.积分变动 >= 0 ? '#52c41a' : '#ff4d4f'} />
