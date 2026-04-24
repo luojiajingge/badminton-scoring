@@ -41,6 +41,9 @@ export const DayReport: React.FC = () => {
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiShareNotice, setAiShareNotice] = useState<string | null>(null);
 
+  // 球员比赛明细展开状态
+  const [expandedPlayerId, setExpandedPlayerId] = useState<string | null>(null);
+
   // 所有已完成的比赛
   const completedMatches = useMemo(
     () => matches.filter((m) => m.status === 'completed'),
@@ -556,13 +559,18 @@ export const DayReport: React.FC = () => {
       {reports.length > 0 && (
         <div className="card">
           <div className="card-title">球员统计</div>
-          {reports.map((r, idx) => (
+          {reports.map((r, idx) => {
+            // 该球员的比赛明细
+            const playerMatches = filteredMatches.filter(
+              (m) => m.team1.players.some((p) => p.id === r.playerId) || m.team2.players.some((p) => p.id === r.playerId)
+            );
+            const isExpanded = expandedPlayerId === r.playerId;
+            return (
             <div key={r.playerId} style={{
-              display: 'flex',
-              alignItems: 'center',
               padding: '10px 0',
               borderBottom: idx < reports.length - 1 ? '1px solid var(--border-color)' : 'none',
             }}>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
               {/* 排名 */}
               <div style={{
                 width: 28, height: 28, borderRadius: '50%',
@@ -579,7 +587,12 @@ export const DayReport: React.FC = () => {
               {/* 球员信息 */}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
-                  <span style={{ fontWeight: 500, fontSize: '14px' }}>{r.playerName}</span>
+                  <span
+                    style={{ fontWeight: 500, fontSize: '14px', cursor: 'pointer', color: 'var(--primary-color)' }}
+                    onClick={() => setExpandedPlayerId(isExpanded ? null : r.playerId)}
+                  >
+                    {r.playerName} {isExpanded ? '▲' : '▼'}
+                  </span>
                   <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
                     {r.wins}胜{r.losses}负
                   </span>
@@ -612,8 +625,63 @@ export const DayReport: React.FC = () => {
                   }} />
                 </div>
               </div>
+              </div>
+              {/* 比赛明细展开 */}
+              {isExpanded && (
+                <div style={{
+                  marginTop: 8,
+                  marginLeft: 38,
+                  padding: '8px 12px',
+                  backgroundColor: 'var(--bg-color)',
+                  borderRadius: 8,
+                  fontSize: '13px',
+                }}>
+                  <div style={{ fontWeight: 600, marginBottom: 6, color: 'var(--text-secondary)' }}>
+                    比赛明细（{playerMatches.length} 场）
+                  </div>
+                  {playerMatches.map((m, mi) => {
+                    const isTeam1 = m.team1.players.some((p) => p.id === r.playerId);
+                    const won = (m.winner === 'team1' && isTeam1) || (m.winner === 'team2' && !isTeam1);
+                    const teammates = (isTeam1 ? m.team1 : m.team2).players.map((p) => p.name).join('、');
+                    const opponents = (isTeam1 ? m.team2 : m.team1).players.map((p) => p.name).join('、');
+                    const myScore = isTeam1 ? m.team1.score : m.team2.score;
+                    const oppScore = isTeam1 ? m.team2.score : m.team1.score;
+                    const rc = m.ratingChanges?.find((c) => c.playerId === r.playerId);
+                    const gameScores = m.games.map((g) => `${g.team1Score}:${g.team2Score}`).join('、');
+                    return (
+                      <div key={m.id} style={{
+                        padding: '6px 0',
+                        borderBottom: mi < playerMatches.length - 1 ? '1px dashed var(--border-color)' : 'none',
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span>
+                            <span style={{
+                              display: 'inline-block', width: 18, height: 18, borderRadius: '50%',
+                              fontSize: '11px', lineHeight: '18px', textAlign: 'center', marginRight: 6,
+                              background: won ? 'var(--success-color)' : 'var(--danger-color)', color: '#fff',
+                            }}>{won ? '胜' : '负'}</span>
+                            {teammates} vs {opponents}
+                          </span>
+                          <span style={{ fontWeight: 600, color: won ? 'var(--success-color)' : 'var(--danger-color)' }}>
+                            {myScore}:{oppScore}
+                          </span>
+                        </div>
+                        <div style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: 2, display: 'flex', justifyContent: 'space-between' }}>
+                          <span>各局比分：{gameScores || '无'}</span>
+                          {rc && (
+                            <span>积分 <b style={{ color: rc.delta >= 0 ? 'var(--success-color)' : 'var(--danger-color)' }}>
+                              {rc.delta >= 0 ? '+' : ''}{rc.delta}
+                            </b></span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          ))}
+          );
+          })}
         </div>
       )}
 
