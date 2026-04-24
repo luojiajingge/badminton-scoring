@@ -1,9 +1,18 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useStore } from '../store';
 import { calculateLevels, getLevelLabel } from '../utils/rating';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
+import {
+  generateAICommentary,
+  isAIConfigured,
+  getCachedCommentary,
+  setCachedCommentary,
+  clearCachedCommentary,
+  calculateHistoricalStats,
+} from '../services/ai';
+import type { AICommentary } from '../services/ai';
 
 const SEP = '━━━━━━━━━━━━━━━';
 
@@ -25,6 +34,12 @@ export const DayReport: React.FC = () => {
 
   const [selectedDate, setSelectedDate] = useState('');
   const [shareNotice, setShareNotice] = useState<string | null>(null);
+
+  // AI 点评相关状态
+  const [aiCommentary, setAiCommentary] = useState<AICommentary | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiShareNotice, setAiShareNotice] = useState<string | null>(null);
 
   // 所有已完成的比赛
   const completedMatches = useMemo(
@@ -153,6 +168,178 @@ export const DayReport: React.FC = () => {
   };
 
   // 一键分享赛事日报
+
+  // ======== AI 犀利点评 ========
+
+  // 生成 AI 点评输入数据（供 handleAIGenerate 和 handleShare 共用）
+  const buildAIInputData = useCallback(() => {
+    if (reports.length === 0) return null;
+
+    const isDay = !!selectedDate;
+    const dateLabel = isDay ? formatDateLabel(selectedDate!) : '总战绩';
+
+    // MVP
+    const mvp = [...reports].sort((a, b) => {
+      if (a.wins >= 2 && b.wins >= 2) return b.winRate - a.winRate;
+      return b.wins - a.wins;
+    })[0];
+
+    // 积分涨幅王
+    const topGainer = [...reports].filter((r) => r.ratingDelta > 0).sort((a, b) => b.ratingDelta - a.ratingDelta)[0];
+
+    // 参赛劳模
+    const busiest = [...reports].sort((a, b) => b.matches - a.matches)[0];
+
+    // 连胜之王
+    const streakMap = new Map<string, { cur: number; max: number; curIsWin: boolean }>();
+    const sortedMatches = [...filteredMatches].sort((a, b) => a.createdAt - b.createdAt);
+    sortedMatches.forEach((m) => {
+      const allP = [...m.team1.players, ...m.team2.players];
+      allP.forEach((p) => {
+        const s = streakMap.get(p.id) || { cur: 0, max: 0, curIsWin: false };
+        const isTeam1 = m.team1.players.some((tp) => tp.id === p.id);
+        const won = (m.winner === 'team1' && isTeam1) || (m.winner === 'team2' && !isTeam1);
+        if (won === s.curIsWin) { s.cur++; } else { s.cur = 1; s.curIsWin = won; }
+        if (s.curIsWin && s.cur > s.max) s.max = s.cur;
+        streakMap.set(p.id, s);
+      });
+    });
+    const streakWinner = reports
+      .map((r) => ({ ...r, maxStreak: streakMap.get(r.playerId)?.max || 0 }))
+      .filter((r) => r.maxStreak >= 2)
+      .sort((a, b) => b.maxStreak - a.maxStreak)[0];
+
+    // 爆冷专家
+    const upsetMap = new Map<string, number>();
+    sortedMatches.forEach((m) => {
+      if (!m.ratingChanges || m.ratingChanges.length === 0) return;
+      const winners = m.ratingChanges.filter((rc) => rc.delta > 0);
+      const losers = m.ratingChanges.filter((rc) => rc.delta < 0);
+      if (winners.length === 0 || losers.length === 0) return;
+      const avgWinnerLevel = winners.reduce((s, rc) => s + (rc.levelBefore ?? 2), 0) / winners.length;
+      const avgLoserLevel = losers.reduce((s, rc) => s + (rc.levelBefore ?? 2), 0) / losers.length;
+      if (avgWinnerLevel > avgLoserLevel) {
+        winners.forEach((rc) => upsetMap.set(rc.playerId, (upsetMap.get(rc.playerId) || 0) + 1));
+      }
+    });
+    const upsetEntry = Array.from(upsetMap.entries())
+      .filter(([, count]) => count >= 1)
+      .sort((a, b) => b[1] - a[1])[0];
+
+    // 带历史数据的 reports
+    const reportsWithHistory = reports.map((r) => {
+      const hist = calculateHistoricalStats(r.playerId, completedMatches);
+      return { ...r, totalMatches: hist.totalMatches, totalWinRate: hist.totalWinRate };
+    });
+
+    const singles = filteredMatches.filter((m) => m.type === 'singles').length;
+    const doubles = filteredMatches.filter((m) => m.type === 'doubles').length;
+
+    // 构建比赛明细
+    const matchDetails = sortedMatches.map((m) => {
+      const t1Names = m.team1.players.map((p) => playerNames.get(p.id) || p.name).join('&');
+      const t2Names = m.team2.players.map((p) => playerNames.get(p.id) || p.name).join('&');
+      // 使用每局实际分数，如 "21:18 15:21 21:12"
+      const gameScores = m.games
+        .filter((g) => g.team1Score > 0 || g.team2Score > 0)
+        .map((g) => `${g.team1Score}:${g.team2Score}`)
+        .join(' ');
+      const score = gameScores || `${m.team1.gamesWon}:${m.team2.gamesWon}`;
+      return {
+        team1Names: t1Names,
+        team2Names: t2Names,
+        score,
+        type: m.type,
+        winner: m.winner ?? 'team1',
+      };
+    });
+
+    return {
+      date: dateLabel,
+      reports: reportsWithHistory,
+      totalParticipants,
+      totalMatches,
+      singles,
+      doubles,
+      mvp: mvp ? { ...mvp, totalMatches: 0, totalWinRate: 0 } : null,
+      topGainer: topGainer ? { ...topGainer, totalMatches: 0, totalWinRate: 0 } : null,
+      busiest: busiest ? { ...busiest, totalMatches: 0, totalWinRate: 0 } : null,
+      streakWinner: streakWinner ? { ...streakWinner, totalMatches: 0, totalWinRate: 0 } : null,
+      upsetKing: upsetEntry
+        ? { playerId: upsetEntry[0], playerName: playerNames.get(upsetEntry[0]) || '未知', count: upsetEntry[1] }
+        : null,
+      matchDetails,
+    };
+  }, [reports, selectedDate, filteredMatches, completedMatches, playerNames, totalParticipants, totalMatches]);
+
+  // 处理 AI 点评生成
+  const handleAIGenerate = useCallback(async (forceRefresh = false) => {
+    const inputData = buildAIInputData();
+    if (!inputData) return;
+
+    // 检查缓存
+    if (!forceRefresh) {
+      const cached = getCachedCommentary(inputData.date);
+      if (cached) {
+        setAiCommentary(cached);
+        setAiError(null);
+        return;
+      }
+    }
+
+    setAiLoading(true);
+    setAiError(null);
+
+    try {
+      const result = await generateAICommentary(inputData);
+      setAiCommentary(result);
+      setCachedCommentary(inputData.date, result);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'AI 点评生成失败';
+      setAiError(msg);
+      setAiCommentary(null);
+    } finally {
+      setAiLoading(false);
+    }
+  }, [buildAIInputData]);
+
+  // 日期切换时重置 AI 状态
+  const handleDateChange = (date: string) => {
+    setSelectedDate(date);
+    setAiCommentary(null);
+    setAiError(null);
+    setAiLoading(false);
+    setAiShareNotice(null);
+  };
+
+  // 分享 AI 点评内容
+  const handleShareAICommentary = () => {
+    if (!aiCommentary) return;
+
+    const isDay = !!selectedDate;
+    const title = isDay ? `🏸 AI 犀利点评 | ${formatDateLabel(selectedDate!)}` : '🏸 AI 犀利点评';
+
+    const lines: string[] = [title, SEP];
+    aiCommentary.playerComments.forEach((pc) => {
+      lines.push(`【${pc.name}】${pc.comment}`);
+    });
+    lines.push('');
+    lines.push(SEP);
+    lines.push(`💬 ${aiCommentary.summary}`);
+    lines.push('');
+    lines.push('—— 由 AI 毒舌评论员倾情出品');
+
+    const text = lines.join('\n');
+    navigator.clipboard.writeText(text).then(() => {
+      setAiShareNotice('✅ AI 点评已复制到剪贴板');
+      setTimeout(() => setAiShareNotice(null), 3000);
+    }).catch(() => {
+      setAiShareNotice('❌ 复制失败，请手动复制');
+      setTimeout(() => setAiShareNotice(null), 3000);
+    });
+  };
+
+  // 一键分享赛事日报（原逻辑）
   const handleShare = () => {
     if (reports.length === 0) return;
 
@@ -284,7 +471,19 @@ export const DayReport: React.FC = () => {
 
     lines.push('');
     lines.push(SEP);
-    lines.push(`💬 ${summary}`);
+
+    // 如果有 AI 点评，使用 AI 点评替换模板总结
+    if (aiCommentary) {
+      lines.push('');
+      lines.push('🤖 AI 犀利点评');
+      aiCommentary.playerComments.forEach((pc) => {
+        lines.push(`【${pc.name}】${pc.comment}`);
+      });
+      lines.push('');
+      lines.push(`💬 ${aiCommentary.summary}`);
+    } else {
+      lines.push(`💬 ${summary}`);
+    }
 
     const text = lines.join('\n');
     navigator.clipboard.writeText(text).then(() => {
@@ -316,7 +515,7 @@ export const DayReport: React.FC = () => {
         <select
           className="input"
           value={selectedDate}
-          onChange={(e) => setSelectedDate(e.target.value)}
+          onChange={(e) => handleDateChange(e.target.value)}
         >
           <option value="">全部（全局统计）</option>
           {availableDates.map((date) => (
@@ -438,6 +637,132 @@ export const DayReport: React.FC = () => {
               color: shareNotice.startsWith('✅') ? '#52c41a' : '#ff4d4f',
             }}>
               {shareNotice}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* AI 犀利点评 */}
+      {reports.length > 0 && isAIConfigured() && selectedDate && (
+        <div className="card">
+          <div className="card-title">🤖 AI 犀利点评</div>
+
+          {!aiLoading && !aiCommentary && !aiError && (
+            <button
+              className="btn btn-full"
+              style={{
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                color: '#fff',
+                border: 'none',
+              }}
+              onClick={() => handleAIGenerate()}
+            >
+              ✨ 生成 AI 犀利点评
+            </button>
+          )}
+
+          {aiLoading && (
+            <div style={{ textAlign: 'center', padding: '24px 0' }}>
+              <div style={{
+                display: 'inline-block',
+                width: 32, height: 32,
+                border: '3px solid var(--border-color)',
+                borderTopColor: '#764ba2',
+                borderRadius: '50%',
+                animation: 'spin 0.8s linear infinite',
+              }} />
+              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+              <div style={{ marginTop: 12, fontSize: '14px', color: 'var(--text-secondary)' }}>
+                AI 正在酝酿毒舌点评，请稍候...
+              </div>
+              <div style={{ marginTop: 4, fontSize: '12px', color: 'var(--text-secondary)', opacity: 0.6 }}>
+                通常需要 30-60 秒
+              </div>
+            </div>
+          )}
+
+          {aiError && (
+            <div style={{
+              padding: '12px',
+              borderRadius: '8px',
+              backgroundColor: 'rgba(245,34,45,0.08)',
+              fontSize: '13px',
+              color: 'var(--danger-color)',
+            }}>
+              <div style={{ marginBottom: 8 }}>😅 {aiError}</div>
+              <button
+                className="btn"
+                style={{ fontSize: '12px', padding: '4px 12px' }}
+                onClick={() => handleAIGenerate(true)}
+              >
+                重试
+              </button>
+            </div>
+          )}
+
+          {aiCommentary && !aiLoading && (
+            <div>
+              {/* 球员点评 */}
+              {aiCommentary.playerComments.map((pc, i) => (
+                <div key={i} style={{
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  marginBottom: 8,
+                  backgroundColor: 'var(--bg-color)',
+                  borderLeft: '3px solid',
+                  borderLeftColor: i === 0 ? '#f5af19' : i === 1 ? '#bdc3c7' : i === 2 ? '#b8860b' : 'var(--primary-color)',
+                }}>
+                  <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: 4 }}>{pc.name}</div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{pc.comment}</div>
+                </div>
+              ))}
+
+              {/* 全场总结 */}
+              {aiCommentary.summary && (
+                <div style={{
+                  padding: '12px',
+                  borderRadius: '8px',
+                  backgroundColor: 'rgba(102,126,234,0.08)',
+                  fontSize: '14px',
+                  lineHeight: 1.6,
+                  fontStyle: 'italic',
+                  textAlign: 'center',
+                  marginTop: 8,
+                }}>
+                  💬 {aiCommentary.summary}
+                </div>
+              )}
+
+              {/* 操作按钮 */}
+              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                <button
+                  className="btn"
+                  style={{ flex: 1, fontSize: '13px' }}
+                  onClick={() => handleAIGenerate(true)}
+                >
+                  🔄 重新生成
+                </button>
+                <button
+                  className="btn btn-primary"
+                  style={{ flex: 1, fontSize: '13px' }}
+                  onClick={handleShareAICommentary}
+                >
+                  📋 分享点评
+                </button>
+              </div>
+              {aiShareNotice && (
+                <div style={{
+                  marginTop: 8,
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  textAlign: 'center',
+                  backgroundColor: aiShareNotice.startsWith('✅') ? 'rgba(82,196,26,0.1)' : 'rgba(245,34,45,0.1)',
+                  color: aiShareNotice.startsWith('✅') ? '#52c41a' : '#ff4d4f',
+                }}>
+                  {aiShareNotice}
+                </div>
+              )}
             </div>
           )}
         </div>
