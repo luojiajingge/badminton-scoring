@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { useStore } from '../store';
 import { exportData, importData } from '../utils/helpers';
 import { RATING } from '../constants';
+import { changePassword, verifyPassword } from '../App';
 import type { SettlementResult, DaySnapshot } from '../types';
 
 // 获取今天的日期字符串
@@ -24,6 +25,12 @@ export const Settings: React.FC = () => {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [confirmStep, setConfirmStep] = useState(0);
   const [showRatingSection, setShowRatingSection] = useState(false);
+
+  // 修改密码相关状态
+  const [showPwdModal, setShowPwdModal] = useState(false);
+  const [pwdForm, setPwdForm] = useState({ old: '', new: '', confirm: '' });
+  const [pwdError, setPwdError] = useState('');
+  const [pwdSuccess, setPwdSuccess] = useState(false);
 
   // 清算相关状态
   const [showSettlementModal, setShowSettlementModal] = useState(false);
@@ -153,6 +160,86 @@ export const Settings: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* 修改密码 */}
+      <div className="card">
+        <div className="card-title">安全设置</div>
+        <button className="btn btn-secondary btn-full" onClick={() => { setShowPwdModal(true); setPwdForm({ old: '', new: '', confirm: '' }); setPwdError(''); setPwdSuccess(false); }}>
+          🔒 修改访问密码
+        </button>
+      </div>
+
+      {/* 修改密码模态框 */}
+      {showPwdModal && (
+        <div className="modal-overlay" onClick={() => setShowPwdModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+            <div className="modal-title">🔒 修改访问密码</div>
+            <div className="modal-body">
+              {pwdSuccess ? (
+                <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                  <div style={{ fontSize: '32px', marginBottom: '12px' }}>✅</div>
+                  <p>密码修改成功！下次访问需使用新密码。</p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <input
+                    className="input"
+                    type="password"
+                    placeholder="当前密码"
+                    value={pwdForm.old}
+                    onChange={(e) => setPwdForm({ ...pwdForm, old: e.target.value })}
+                  />
+                  <input
+                    className="input"
+                    type="password"
+                    placeholder="新密码"
+                    value={pwdForm.new}
+                    onChange={(e) => setPwdForm({ ...pwdForm, new: e.target.value })}
+                  />
+                  <input
+                    className="input"
+                    type="password"
+                    placeholder="确认新密码"
+                    value={pwdForm.confirm}
+                    onChange={(e) => setPwdForm({ ...pwdForm, confirm: e.target.value })}
+                  />
+                  {pwdError && (
+                    <div style={{ fontSize: '13px', color: 'var(--danger-color)' }}>
+                      {pwdError}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="modal-actions">
+              <button className="btn btn-secondary" onClick={() => setShowPwdModal(false)}>
+                {pwdSuccess ? '完成' : '取消'}
+              </button>
+              {!pwdSuccess && (
+                <button
+                  className="btn btn-primary"
+                  onClick={async () => {
+                    if (pwdForm.new.length < 4) {
+                      setPwdError('新密码至少 4 位');
+                    } else if (pwdForm.new !== pwdForm.confirm) {
+                      setPwdError('两次输入的新密码不一致');
+                    } else {
+                      const ok = await changePassword(pwdForm.old, pwdForm.new);
+                      if (!ok) {
+                        setPwdError('当前密码错误');
+                      } else {
+                        setPwdSuccess(true);
+                      }
+                    }
+                  }}
+                >
+                  确认修改
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 比赛日清算管理 */}
       <div className="card">

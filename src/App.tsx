@@ -13,6 +13,32 @@ import { Toast } from './components/Toast';
 import { useStore } from './store';
 import './styles/global.css';
 
+// 密码认证
+const AUTH_KEY = 'badminton-auth';
+const CUSTOM_PWD_KEY = 'badminton-custom-pwd';
+const hashPassword = async (pwd: string): Promise<string> => {
+  const data = new TextEncoder().encode(pwd + 'badminton-salt');
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+};
+export const isAuthenticated = (): boolean => sessionStorage.getItem(AUTH_KEY) === 'true';
+export const setAuthenticated = (): void => sessionStorage.setItem(AUTH_KEY, 'true');
+export const verifyPassword = async (input: string): Promise<boolean> => {
+  const customHash = localStorage.getItem(CUSTOM_PWD_KEY);
+  if (customHash) {
+    const inputHash = await hashPassword(input);
+    return inputHash === customHash;
+  }
+  return input === (import.meta.env.VITE_APP_PASSWORD || '');
+};
+export const changePassword = async (oldPwd: string, newPwd: string): Promise<boolean> => {
+  const valid = await verifyPassword(oldPwd);
+  if (!valid) return false;
+  const hash = await hashPassword(newPwd);
+  localStorage.setItem(CUSTOM_PWD_KEY, hash);
+  return true;
+};
+
 // 格式化日期显示
 const formatDateDisplay = (dateStr: string) => {
   const [, month, day] = dateStr.split('-');
@@ -21,6 +47,9 @@ const formatDateDisplay = (dateStr: string) => {
 
 function App() {
   const [currentPage, setCurrentPage] = useState('match');
+  const [authenticated, setAuthenticatedState] = useState(isAuthenticated);
+  const [password, setPassword] = useState('');
+  const [authError, setAuthError] = useState(false);
   const [showRestoreNotice, setShowRestoreNotice] = useState(false);
   const [unsettledNotice, setUnsettledNotice] = useState<{ dates: string[]; dismissed: boolean }>({ dates: [], dismissed: false });
 
@@ -135,6 +164,82 @@ function App() {
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: '32px', marginBottom: '12px' }}>🏸</div>
           <div style={{ color: 'var(--text-secondary)' }}>加载中...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // 密码验证页面
+  if (!authenticated) {
+    const handlePasswordSubmit = async (e: React.FormEvent) => {
+      e.preventDefault();
+      const valid = await verifyPassword(password);
+      if (valid) {
+        setAuthenticated();
+        setAuthenticatedState(true);
+        setAuthError(false);
+      } else {
+        setAuthError(true);
+        setPassword('');
+      }
+    };
+
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '100vh',
+        padding: '16px',
+      }}>
+        <div className="card fade-in" style={{
+          width: '100%',
+          maxWidth: '360px',
+          textAlign: 'center',
+          padding: '32px 24px',
+        }}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>🏸</div>
+          <h2 style={{
+            fontSize: '20px',
+            fontWeight: 600,
+            marginBottom: '8px',
+            color: 'var(--text-color)',
+          }}>
+            羽毛球比分记录系统
+          </h2>
+          <p style={{
+            fontSize: '13px',
+            color: 'var(--text-secondary)',
+            marginBottom: '24px',
+          }}>
+            请输入访问密码
+          </p>
+          <form onSubmit={handlePasswordSubmit}>
+            <input
+              className="input"
+              type="password"
+              placeholder="请输入密码"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (authError) setAuthError(false);
+              }}
+              autoFocus
+              style={{ marginBottom: '12px', textAlign: 'center' }}
+            />
+            {authError && (
+              <div style={{
+                fontSize: '13px',
+                color: 'var(--error-color, #ff4d4f)',
+                marginBottom: '12px',
+              }}>
+                密码错误，请重试
+              </div>
+            )}
+            <button className="btn btn-primary btn-full" type="submit">
+              进入系统
+            </button>
+          </form>
         </div>
       </div>
     );
