@@ -75,6 +75,21 @@ function checkError(error: unknown): void {
 }
 
 export const db = {
+  // 系统配置
+  async getConfig(key: string): Promise<string | null> {
+    const { data, error } = await supabase.from('system_config').select('value').eq('key', key).single();
+    if (error) {
+      if ((error as { code?: string }).code === 'PGRST116') return null; // 未找到记录
+      throw error;
+    }
+    return data?.value ?? null;
+  },
+
+  async setConfig(key: string, value: string): Promise<void> {
+    const { error } = await supabase.from('system_config').upsert({ key, value }, { onConflict: 'key' });
+    checkError(error);
+  },
+
   // 玩家
   async fetchPlayers(): Promise<PlayerRow[]> {
     const { data, error } = await supabase.from('players').select('*').order('created_at', { ascending: true });

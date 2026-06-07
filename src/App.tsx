@@ -11,11 +11,12 @@ import { PlayerManagement } from './components/PlayerManagement';
 import { DayReport } from './components/DayReport';
 import { Toast } from './components/Toast';
 import { useStore } from './store';
+import { db } from './services/supabase';
 import './styles/global.css';
 
 // 密码认证
 const AUTH_KEY = 'badminton-auth';
-const CUSTOM_PWD_KEY = 'badminton-custom-pwd';
+const PWD_CONFIG_KEY = 'password_hash';
 const hashPassword = async (pwd: string): Promise<string> => {
   const data = new TextEncoder().encode(pwd + 'badminton-salt');
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
@@ -24,18 +25,21 @@ const hashPassword = async (pwd: string): Promise<string> => {
 export const isAuthenticated = (): boolean => sessionStorage.getItem(AUTH_KEY) === 'true';
 export const setAuthenticated = (): void => sessionStorage.setItem(AUTH_KEY, 'true');
 export const verifyPassword = async (input: string): Promise<boolean> => {
-  const customHash = localStorage.getItem(CUSTOM_PWD_KEY);
-  if (customHash) {
-    const inputHash = await hashPassword(input);
-    return inputHash === customHash;
+  let storedHash = await db.getConfig(PWD_CONFIG_KEY);
+  if (!storedHash) {
+    // 首次使用，用默认密码的哈希初始化数据库
+    const defaultPwd = import.meta.env.VITE_APP_PASSWORD || '';
+    storedHash = await hashPassword(defaultPwd);
+    await db.setConfig(PWD_CONFIG_KEY, storedHash);
   }
-  return input === (import.meta.env.VITE_APP_PASSWORD || '');
+  const inputHash = await hashPassword(input);
+  return inputHash === storedHash;
 };
 export const changePassword = async (oldPwd: string, newPwd: string): Promise<boolean> => {
   const valid = await verifyPassword(oldPwd);
   if (!valid) return false;
   const hash = await hashPassword(newPwd);
-  localStorage.setItem(CUSTOM_PWD_KEY, hash);
+  await db.setConfig(PWD_CONFIG_KEY, hash);
   return true;
 };
 
@@ -50,6 +54,8 @@ function App() {
   const [authenticated, setAuthenticatedState] = useState(isAuthenticated);
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState(false);
+  const [showPwd, setShowPwd] = useState(false);
+  const [authErrorMsg, setAuthErrorMsg] = useState('');
   const [showRestoreNotice, setShowRestoreNotice] = useState(false);
   const [unsettledNotice, setUnsettledNotice] = useState<{ dates: string[]; dismissed: boolean }>({ dates: [], dismissed: false });
 
@@ -173,13 +179,21 @@ function App() {
   if (!authenticated) {
     const handlePasswordSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      const valid = await verifyPassword(password);
-      if (valid) {
-        setAuthenticated();
-        setAuthenticatedState(true);
-        setAuthError(false);
-      } else {
+      try {
+        const valid = await verifyPassword(password);
+        if (valid) {
+          setAuthenticated();
+          setAuthenticatedState(true);
+          setAuthError(false);
+          setAuthErrorMsg('');
+        } else {
+          setAuthError(true);
+          setAuthErrorMsg('密码错误，请重试');
+          setPassword('');
+        }
+      } catch (err) {
         setAuthError(true);
+        setAuthErrorMsg(err instanceof Error ? err.message : '验证失败，请检查网络连接');
         setPassword('');
       }
     };
@@ -215,25 +229,42 @@ function App() {
             请输入访问密码
           </p>
           <form onSubmit={handlePasswordSubmit}>
-            <input
-              className="input"
-              type="password"
-              placeholder="请输入密码"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                if (authError) setAuthError(false);
-              }}
-              autoFocus
-              style={{ marginBottom: '12px', textAlign: 'center' }}
-            />
+            <div style={{ position: 'relative', marginBottom: '12px' }}>
+              <input
+                className="input"
+                type={showPwd ? 'text' : 'password'}
+                placeholder="请输入密码"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (authError) setAuthError(false);
+                }}
+                autoFocus
+                style={{ textAlign: 'center', paddingRight: '40px' }}
+              />
+              <span
+                onClick={() => setShowPwd(!showPwd)}
+                style={{
+                  position: 'absolute',
+                  right: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  color: 'var(--text-secondary)',
+                  userSelect: 'none',
+                }}
+              >
+                {showPwd ? '🔒' : '👁️'}
+              </span>
+            </div>
             {authError && (
               <div style={{
                 fontSize: '13px',
                 color: 'var(--error-color, #ff4d4f)',
                 marginBottom: '12px',
               }}>
-                密码错误，请重试
+                {authErrorMsg}
               </div>
             )}
             <button className="btn btn-primary btn-full" type="submit">
