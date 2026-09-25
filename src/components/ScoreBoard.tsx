@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { Match } from '../types';
 import { validateGameScore } from '../utils/scoreValidator';
 import { getGamesNeeded, getModeLabel, getScoreModeLabel } from '../utils/helpers';
+import { SCORING_SYSTEMS, getScoringRules } from '../constants';
 
 interface ScoreBoardProps {
   match: Match;
@@ -13,6 +14,8 @@ interface ScoreBoardProps {
 export const ScoreBoard: React.FC<ScoreBoardProps> = ({ match, onScore, onSetGameScore, onUndo }) => {
   const currentGame = match.games[match.currentGame - 1] || { team1Score: 0, team2Score: 0 };
   const gamesNeeded = getGamesNeeded(match.mode);
+  const scoringSystem = match.scoringSystem ?? '21';
+  const scoringRules = getScoringRules(scoringSystem);
 
   // 直接输入比分的状态
   const [inputTeam1, setInputTeam1] = useState('');
@@ -26,7 +29,7 @@ export const ScoreBoard: React.FC<ScoreBoardProps> = ({ match, onScore, onSetGam
     const s1 = parseInt(inputTeam1, 10);
     const s2 = parseInt(inputTeam2, 10);
     if (isNaN(s1) || isNaN(s2)) { setScoreError('请输入有效比分'); return; }
-    const validation = validateGameScore(s1, s2);
+    const validation = validateGameScore(s1, s2, scoringSystem);
     if (!validation.valid) { setScoreError(validation.error || '比分不合法'); return; }
     setScoreError('');
     onSetGameScore(inputGameIndex, s1, s2);
@@ -40,7 +43,7 @@ export const ScoreBoard: React.FC<ScoreBoardProps> = ({ match, onScore, onSetGam
       const s1 = parseInt(parts[0], 10);
       const s2 = parseInt(parts[1], 10);
       if (!isNaN(s1) && !isNaN(s2)) {
-        const validation = validateGameScore(s1, s2);
+        const validation = validateGameScore(s1, s2, scoringSystem);
         if (validation.valid) {
           setScoreError('');
           onSetGameScore(inputGameIndex, s1, s2);
@@ -63,6 +66,9 @@ export const ScoreBoard: React.FC<ScoreBoardProps> = ({ match, onScore, onSetGam
         <span style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '12px', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
           {getScoreModeLabel(match.scoreMode)}
         </span>
+        <span style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '12px', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
+          {SCORING_SYSTEMS[scoringSystem].label}
+        </span>
       </div>
 
       {/* 局分显示 */}
@@ -82,7 +88,7 @@ export const ScoreBoard: React.FC<ScoreBoardProps> = ({ match, onScore, onSetGam
       <div className="card">
         <div style={{ textAlign: 'center', marginBottom: '16px' }}>
           <span className="score-games">
-            总比分: {match.team1.gamesWon} - {match.team2.gamesWon} (先到{gamesNeeded}局获胜)
+            总比分: {match.team1.gamesWon} - {match.team2.gamesWon} (先到{gamesNeeded}局获胜，每局先到{scoringRules.winningScore}分)
           </span>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>

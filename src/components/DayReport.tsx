@@ -667,7 +667,7 @@ export const DayReport: React.FC = () => {
                           </span>
                         </div>
                         <div style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: 2, display: 'flex', justifyContent: 'space-between' }}>
-                          <span>各局比分：{gameScores || '无'}</span>
+                          <span>各局比分：{gameScores || '无'}{m.scoringSystem === '15' ? '（15分制）' : ''}</span>
                           {rc && (
                             <span>积分 <b style={{ color: rc.delta >= 0 ? 'var(--success-color)' : 'var(--danger-color)' }}>
                               {rc.delta >= 0 ? '+' : ''}{rc.delta}

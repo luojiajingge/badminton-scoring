@@ -9,6 +9,8 @@ export interface Player {
 export type MatchType = 'singles' | 'doubles';
 export type MatchMode = 'single' | 'best-of-3' | 'best-of-5';
 export type ScoreMode = 'point-by-point' | 'direct-input';
+import type { ScoringSystem } from '../constants';
+export type { ScoringSystem };
 
 export interface Team {
   players: Player[];
@@ -36,6 +38,7 @@ export interface Match {
   type: MatchType;
   mode: MatchMode;
   scoreMode: ScoreMode;
+  scoringSystem?: ScoringSystem; // 赛制：'21' | '15'，缺省为21分制（兼容历史数据）
   team1: Team;
   team2: Team;
   currentGame: number;

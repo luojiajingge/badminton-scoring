@@ -199,7 +199,7 @@ export const MatchHistory: React.FC = () => {
             </div>
             <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
               {selectedMatch.type === 'singles' ? '单打' : '双打'} |
-              {selectedMatch.mode === 'single' ? '单局赛' : selectedMatch.mode === 'best-of-3' ? '三局两胜' : '五局三胜'}
+              {selectedMatch.mode === 'single' ? '单局赛' : selectedMatch.mode === 'best-of-3' ? '三局两胜' : '五局三胜'}{selectedMatch.scoringSystem === '15' ? ' | 15分制' : ''}
             </div>
           </div>
 
@@ -357,6 +357,9 @@ export const MatchHistory: React.FC = () => {
                   )}
                   <span className="history-date">{matchNumberMap.get(match.id) || match.matchDate || formatDate(match.createdAt)}</span>
                   <span className="history-type">{match.type === 'singles' ? '单打' : '双打'}</span>
+                  {match.scoringSystem === '15' && (
+                    <span className="history-type">15分制</span>
+                  )}
                 </div>
                 <div className="history-teams">
                   <div className="history-team">

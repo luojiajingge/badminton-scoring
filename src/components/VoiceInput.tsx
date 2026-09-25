@@ -5,7 +5,7 @@ import { generateId } from '../utils/helpers';
 import { splitTeamNames } from '../utils/nameSplitter';
 import { calculateRatingChanges, applyRatingChanges, calculateLevels } from '../utils/rating';
 import { nameToPinyinKey, pinyinMatch } from '../utils/pinyin';
-import type { Player, Match } from '../types';
+import type { Player, Match, ScoringSystem } from '../types';
 
 // 获取今天的日期字符串
 const getTodayDate = () => new Date().toISOString().split('T')[0];
@@ -18,6 +18,7 @@ function parseInputText(text: string): {
   team1Names: string[];
   team2Names: string[];
   scores: [number, number][];
+  scoringSystem: ScoringSystem;
   error?: string;
 } | null {
   let cleaned = text.replace(/\s+/g, '').replace(/，/g, '、').replace(/,/g, '、');
@@ -25,8 +26,15 @@ function parseInputText(text: string): {
   if (!scoreExtract) return null;
   const s1 = parseInt(scoreExtract[1]);
   const s2 = parseInt(scoreExtract[2]);
-  const sv = validateGameScore(s1, s2);
-  if (!sv.valid) return { team1Names: [], team2Names: [], scores: [[0, 0]], error: sv.error };
+  // 自动识别赛制：先按21分制校验，不合法再按15分制
+  const sv21 = validateGameScore(s1, s2, '21');
+  let scoringSystem: ScoringSystem = '21';
+  let sv = sv21;
+  if (!sv21.valid) {
+    const sv15 = validateGameScore(s1, s2, '15');
+    if (sv15.valid) { scoringSystem = '15'; sv = sv15; }
+  }
+  if (!sv.valid) return { team1Names: [], team2Names: [], scores: [[0, 0]], scoringSystem, error: sv.error };
   let playerPart = cleaned.slice(0, scoreExtract.index!);
   playerPart = playerPart.replace(/比分[、\s]*$/, '');
   const sepPattern = /[对]|vs|VS|对战|PK|pk/;
@@ -35,7 +43,7 @@ function parseInputText(text: string): {
   const team1Names = parts[0].split(/[、]/).map(s => s.trim()).filter(Boolean);
   const team2Names = parts[1].split(/[、]/).map(s => s.trim()).filter(Boolean);
   if (team1Names.length === 0 || team2Names.length === 0) return null;
-  return { team1Names, team2Names, scores: [[s1, s2]] };
+  return { team1Names, team2Names, scores: [[s1, s2]], scoringSystem };
 }
 function findPlayerCandidates(inputName: string, players: Player[]) {
   const q = inputName.toLowerCase().replace(/\s+/g, '');
@@ -61,6 +69,7 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({ onMatchCreated }) => {
     team1Names: string[];
     team2Names: string[];
     scores: [number, number][];
+    scoringSystem: ScoringSystem;
     team1: Player[];
     team2: Player[];
     unmatched: PendingPlayer[];
@@ -72,6 +81,7 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({ onMatchCreated }) => {
   const finalizeMatch = async (
     scores: [number, number][],
     team1: Player[], team2: Player[],
+    scoringSystem: ScoringSystem = '21',
   ) => {
     try {
       const totalPlayers = team1.length + team2.length;
@@ -90,6 +100,7 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({ onMatchCreated }) => {
         type: matchType,
         mode: 'single' as const,
         scoreMode: 'direct-input' as const,
+        scoringSystem,
         team1: { players: team1, score: 0, gamesWon: winner === 'team1' ? 1 : 0 },
         team2: { players: team2, score: 0, gamesWon: winner === 'team2' ? 1 : 0 },
         currentGame: 1,
@@ -133,7 +144,7 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({ onMatchCreated }) => {
           `${rc.playerName}: ${rc.ratingBefore} → ${rc.ratingAfter} (${rc.delta >= 0 ? '+' : ''}${rc.delta})`
         ).join('\n');
       }
-      setResult({ ok: true, text: `✅ 已记录：${matchType === 'doubles' ? '双打' : '单打'}\n${t1Names} vs ${t2Names}\n比分 ${s1}:${s2}${ratingText}` });
+      setResult({ ok: true, text: `✅ 已记录：${matchType === 'doubles' ? '双打' : '单打'}${scoringSystem === '15' ? '（15分制）' : ''}\n${t1Names} vs ${t2Names}\n比分 ${s1}:${s2}${ratingText}` });
       setInputText('');    } catch (err) {
       console.error('finalizeMatch error:', err);
       setResult({ ok: false, text: '❌ 提交失败：' + (err instanceof Error ? err.message : String(err)) });
@@ -198,12 +209,13 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({ onMatchCreated }) => {
       }
 
       if (unmatched.length === 0) {
-        await finalizeMatch(parsed.scores, team1, team2);
+        await finalizeMatch(parsed.scores, team1, team2, parsed.scoringSystem);
       } else {
         setPendingConfirm({
           team1Names: parsed.team1Names,
           team2Names: parsed.team2Names,
           scores: parsed.scores,
+          scoringSystem: parsed.scoringSystem,
           team1, team2, unmatched,
         });
         setProcessing(false);
@@ -227,7 +239,7 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({ onMatchCreated }) => {
     if (newUnmatched.length === 0) {
       setPendingConfirm(null);
       setProcessing(true);
-      await finalizeMatch(pendingConfirm.scores, pendingConfirm.team1, pendingConfirm.team2);
+      await finalizeMatch(pendingConfirm.scores, pendingConfirm.team1, pendingConfirm.team2, pendingConfirm.scoringSystem);
     } else {
       setPendingConfirm({ ...pendingConfirm, unmatched: newUnmatched, team1: [...pendingConfirm.team1], team2: [...pendingConfirm.team2] });
     }
@@ -246,7 +258,7 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({ onMatchCreated }) => {
     if (newUnmatched.length === 0) {
       setPendingConfirm(null);
       setProcessing(true);
-      await finalizeMatch(pendingConfirm.scores, pendingConfirm.team1, pendingConfirm.team2);
+      await finalizeMatch(pendingConfirm.scores, pendingConfirm.team1, pendingConfirm.team2, pendingConfirm.scoringSystem);
     } else {
       setPendingConfirm({ ...pendingConfirm, unmatched: newUnmatched, team1: [...pendingConfirm.team1], team2: [...pendingConfirm.team2] });
     }

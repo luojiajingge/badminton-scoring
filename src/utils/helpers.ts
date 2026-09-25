@@ -1,20 +1,21 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { Player, Match, PlayerStats, HeadToHead, LeaderboardEntry, ExportData } from '../types';
-import { BADMINTON, STATS } from '../constants';
+import type { Player, Match, PlayerStats, HeadToHead, LeaderboardEntry, ExportData, ScoringSystem } from '../types';
+import { STATS, getScoringRules } from '../constants';
 
 export const generateId = (): string => uuidv4();
-export const getWinningScore = (): number => BADMINTON.WINNING_SCORE;
+export const getWinningScore = (system?: ScoringSystem): number => getScoringRules(system).winningScore;
 
-export const isGameWon = (score1: number, score2: number): boolean => {
-  const maxScore = Math.max(score1, score2);
-  const minScore = Math.min(score1, score2);
-  const diff = maxScore - minScore;
-  // 30分封顶：只能是 30:29
-  if (maxScore >= BADMINTON.MAX_SCORE) {
-    return maxScore === BADMINTON.MAX_SCORE && minScore === BADMINTON.MAX_SCORE - 1;
+export const isGameWon = (score1: number, score2: number, system: ScoringSystem = '21'): boolean => {
+  const { winningScore, maxScore, minWinDiff } = getScoringRules(system);
+  const max = Math.max(score1, score2);
+  const min = Math.min(score1, score2);
+  const diff = max - min;
+  // 封顶分：只能是一分决胜（21分制30:29，15分制21:20）
+  if (max >= maxScore) {
+    return max === maxScore && min === maxScore - 1;
   }
-  // 正常：>=21 且分差>=2
-  if (maxScore >= BADMINTON.WINNING_SCORE && diff >= BADMINTON.MIN_WIN_DIFF) return true;
+  // 正常：达到目标分且分差>=2
+  if (max >= winningScore && diff >= minWinDiff) return true;
   return false;
 };
 

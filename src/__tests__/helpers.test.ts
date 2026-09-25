@@ -11,6 +11,19 @@ describe('isGameWon', () => {
   it('20:18 不胜', () => expect(isGameWon(20, 18)).toBe(false));
 });
 
+describe('isGameWon 15分制', () => {
+  it('15:13 胜', () => expect(isGameWon(15, 13, '15')).toBe(true));
+  it('15:0 胜', () => expect(isGameWon(15, 0, '15')).toBe(true));
+  it('15:14 不胜（分差<2）', () => expect(isGameWon(15, 14, '15')).toBe(false));
+  it('16:14 胜', () => expect(isGameWon(16, 14, '15')).toBe(true));
+  it('21:20 一分决胜胜', () => expect(isGameWon(21, 20, '15')).toBe(true));
+  it('21:19 不胜（封顶须21:20）', () => expect(isGameWon(21, 19, '15')).toBe(false));
+  it('14:12 不胜（未到15分）', () => expect(isGameWon(14, 12, '15')).toBe(false));
+  // isGameWon 为实时加分判定（宽松），16:13 这类跳变比分的严格校验由 validateGameScore 负责
+  it('16:13 判胜（宽松判定，同21分制的22:19）', () => expect(isGameWon(16, 13, '15')).toBe(true));
+  it('缺省参数按21分制：15:13 不胜', () => expect(isGameWon(15, 13)).toBe(false));
+});
+
 describe('isMatchWon', () => {
   it('单局赛直接判定', () => expect(isMatchWon(1, 'single')).toBe(true));
   it('三局两胜需2局', () => expect(isMatchWon(2, 'best-of-3')).toBe(true));

@@ -1,7 +1,8 @@
 import { VoiceInput } from './VoiceInput';
 import React, { useState, useMemo } from 'react';
 import { useStore } from '../store';
-import type { MatchType, MatchMode, ScoreMode, Player } from '../types';
+import type { MatchType, MatchMode, ScoreMode, Player, ScoringSystem } from '../types';
+import { SCORING_SYSTEMS } from '../constants';
 import { nameToPinyinKey } from '../utils/pinyin';
 
 type SetupMode = 'manual' | 'quick';
@@ -22,6 +23,7 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ onStart }) => {
   const [setupMode, setSetupMode] = useState<SetupMode>('quick');
   const [matchType, setMatchType] = useState<MatchType>('singles');
   const [matchMode, setMatchMode] = useState<MatchMode>('single');
+  const [scoringSystem, setScoringSystem] = useState<ScoringSystem>('21');
   const [scoreMode, setScoreMode] = useState<ScoreMode>('direct-input');
   const [matchDate, setMatchDate] = useState<string>(getTodayDate());
   const [team1Selected, setTeam1Selected] = useState<string[]>([]);
@@ -94,7 +96,7 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ onStart }) => {
       alert(earlierUnsettled[0] + ' 等日期有比赛未清算，请先清算后再录入新比赛');
       return;
     }
-    createMatch(matchType, matchMode, scoreMode, team1Players, team2Players, matchDate);
+    createMatch(matchType, matchMode, scoreMode, team1Players, team2Players, matchDate, scoringSystem);
     onStart();
   };
 
@@ -265,6 +267,22 @@ export const MatchSetup: React.FC<MatchSetupProps> = ({ onStart }) => {
                 onClick={() => setMatchMode('best-of-3')}>三局两胜</button>
               <button className={`btn ${matchMode === 'best-of-5' ? 'btn-primary' : 'btn-secondary'}`} style={{ flex: 1 }}
                 onClick={() => setMatchMode('best-of-5')}>五局三胜</button>
+            </div>
+          </div>
+
+          {/* 赛制选择 */}
+          <div className="card" style={{ fontSize: '13px' }}>
+            <div className="card-title" style={{ fontSize: '14px' }}>赛制</div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button className={`btn ${scoringSystem === '21' ? 'btn-primary' : 'btn-secondary'}`} style={{ flex: 1 }}
+                onClick={() => setScoringSystem('21')}>21分制</button>
+              <button className={`btn ${scoringSystem === '15' ? 'btn-primary' : 'btn-secondary'}`} style={{ flex: 1 }}
+                onClick={() => setScoringSystem('15')}>15分制</button>
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '8px' }}>
+              {scoringSystem === '21'
+                ? '先到21分且领先2分获胜，30分封顶'
+                : '先到15分且领先2分获胜，21分封顶'}
             </div>
           </div>
 

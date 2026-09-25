@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { Player, Match, Team, MatchType, MatchMode, ScoreMode, Theme, UndoSnapshot, DaySnapshot, PlayerSnapshot, SettlementResult } from '../types';
+import type { Player, Match, Team, MatchType, MatchMode, ScoreMode, Theme, UndoSnapshot, DaySnapshot, PlayerSnapshot, SettlementResult, ScoringSystem } from '../types';
 import { generateId, isGameWon, isMatchWon } from '../utils/helpers';
 import { calculateRatingChanges, applyRatingChanges, calculateLevels, getInitialRating } from '../utils/rating';
 import { db } from '../services/supabase';
@@ -32,7 +32,7 @@ interface AppState {
   addPlayer: (name: string) => Promise<Player>;
   updatePlayer: (id: string, name: string) => Promise<void>;
   deletePlayer: (id: string) => Promise<void>;
-  createMatch: (type: MatchType, mode: MatchMode, scoreMode: ScoreMode, team1Players: Player[], team2Players: Player[], matchDate?: string) => Match;
+  createMatch: (type: MatchType, mode: MatchMode, scoreMode: ScoreMode, team1Players: Player[], team2Players: Player[], matchDate?: string, scoringSystem?: ScoringSystem) => Match;
   updateCurrentMatch: (match: Match) => void;
   addScore: (team: 'team1' | 'team2') => Promise<void>;
   setGameScore: (gameIndex: number, team1Score: number, team2Score: number) => Promise<void>;
@@ -148,10 +148,10 @@ export const useStore = create<AppState>()(
         }
       },
 
-      createMatch: (type, mode, scoreMode, team1Players, team2Players, matchDate) => {
+      createMatch: (type, mode, scoreMode, team1Players, team2Players, matchDate, scoringSystem) => {
         const today = new Date().toISOString().split('T')[0];
         const match: Match = {
-          id: generateId(), type, mode, scoreMode,
+          id: generateId(), type, mode, scoreMode, scoringSystem: scoringSystem ?? '21',
           team1: { players: team1Players, score: 0, gamesWon: 0 },
           team2: { players: team2Players, score: 0, gamesWon: 0 },
           currentGame: 1, games: [{ team1Score: 0, team2Score: 0 }],
@@ -221,7 +221,7 @@ export const useStore = create<AppState>()(
         let status: Match['status'] = currentMatch.status;
         let winner: Match['winner'] = currentMatch.winner;
 
-        if (isGameWon(games[gameIndex].team1Score, games[gameIndex].team2Score)) {
+        if (isGameWon(games[gameIndex].team1Score, games[gameIndex].team2Score, currentMatch.scoringSystem)) {
           const gw = games[gameIndex].team1Score > games[gameIndex].team2Score ? 'team1' : 'team2';
           games[gameIndex].winner = gw;
           if (gw === 'team1') team1 = { ...team1, gamesWon: team1.gamesWon + 1 };

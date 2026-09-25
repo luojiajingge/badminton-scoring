@@ -1,6 +1,39 @@
 import { describe, it, expect } from 'vitest';
 import { validateGameScore } from '../utils/scoreValidator';
 
+describe('validateGameScore 15分制', () => {
+  it('15:0 应该合法', () => {
+    expect(validateGameScore(15, 0, '15').valid).toBe(true);
+  });
+  it('15:13 应该合法（分差≥2）', () => {
+    expect(validateGameScore(15, 13, '15').valid).toBe(true);
+  });
+  it('15:14 应该不合法（分差<2）', () => {
+    expect(validateGameScore(15, 14, '15').valid).toBe(false);
+  });
+  it('16:14 应该合法（14:14后延续）', () => {
+    expect(validateGameScore(16, 14, '15').valid).toBe(true);
+  });
+  it('16:13 应该不合法（15分时就该结束）', () => {
+    expect(validateGameScore(16, 13, '15').valid).toBe(false);
+  });
+  it('21:20 应该合法（一分决胜）', () => {
+    expect(validateGameScore(21, 20, '15').valid).toBe(true);
+  });
+  it('21:19 应该不合法（封顶只能21:20）', () => {
+    expect(validateGameScore(21, 19, '15').valid).toBe(false);
+  });
+  it('22:20 应该不合法（超过21分封顶）', () => {
+    expect(validateGameScore(22, 20, '15').valid).toBe(false);
+  });
+  it('14:12 应该不合法（未达15分）', () => {
+    expect(validateGameScore(14, 12, '15').valid).toBe(false);
+  });
+  it('缺省参数按21分制：15:13 不合法', () => {
+    expect(validateGameScore(15, 13).valid).toBe(false);
+  });
+});
+
 describe('validateGameScore', () => {
   // 基本胜负
   it('21:0 应该合法', () => {
